@@ -19,7 +19,6 @@ import {
   fetchTree,
   fetchFiles,
   fetchIssues,
-  fetchPullRequests,
   type GHIssue,
   type GHTreeItem,
 } from '../api';
@@ -88,23 +87,23 @@ export async function loadAuthoredContent(
 
 // ── Repo-aware mode ────────────────────────────────────────
 
-/** Emoji mapping for issue types / labels. */
-const ISSUE_TYPE_EMOJI: Record<string, string> = {
-  epic: '🏔️',
-  feature: '✨',
-  task: '🔧',
-  bug: '🐛',
-  enhancement: '💡',
-  documentation: '📖',
-  question: '❓',
+/** Fluent icon name mapping for issue types / labels. */
+const ISSUE_TYPE_ICON: Record<string, string> = {
+  epic: 'Flag',
+  feature: 'Sparkle',
+  task: 'Wrench',
+  bug: 'Bug',
+  enhancement: 'Lightbulb',
+  documentation: 'Document',
+  question: 'QuestionCircle',
 };
 
-function issueEmoji(labels: string[]): string {
+function issueIcon(labels: string[]): string {
   for (const label of labels) {
     const lower = label.toLowerCase();
-    if (ISSUE_TYPE_EMOJI[lower]) return ISSUE_TYPE_EMOJI[lower];
+    if (ISSUE_TYPE_ICON[lower]) return ISSUE_TYPE_ICON[lower];
   }
-  return '📌';
+  return 'Pin';
 }
 
 /** Extract issue cross-references (#N) from body text. */
@@ -127,32 +126,12 @@ function issueToNode(issue: GHIssue): KBNode {
     cluster,
     content: html,
     rawContent: body,
-    emoji: issueEmoji(labels),
+    emoji: issueIcon(labels),
     connections: refs.map(n => ({
       to: `issue-${n}`,
       description: `References #${n}`,
     })),
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
-  };
-}
-
-function prToNode(pr: GHIssue): KBNode {
-  const body = pr.body ?? '';
-  const html = marked.parse(body, { async: false }) as string;
-  const refs = extractIssueRefs(body);
-
-  return {
-    id: `pr-${pr.number}`,
-    title: pr.title,
-    cluster: 'pull-request',
-    content: html,
-    rawContent: body,
-    emoji: pr.state === 'open' ? '🟢' : '🟣',
-    connections: refs.map(n => ({
-      to: `issue-${n}`,
-      description: `Addresses #${n}`,
-    })),
-    source: { type: 'pull_request', number: pr.number, state: pr.state },
   };
 }
 
@@ -164,7 +143,7 @@ function readmeToNode(content: string): KBNode {
     cluster: 'docs',
     content: html,
     rawContent: content,
-    emoji: '📖',
+    emoji: 'Document',
     connections: [],
     source: { type: 'readme' },
   };
@@ -197,7 +176,7 @@ function treeToNodes(tree: GHTreeItem[]): KBNode[] {
       cluster: 'code',
       content: html,
       rawContent: content,
-      emoji: '📁',
+      emoji: 'Folder',
       connections: [],
       source: { type: 'file' as const, path: dir },
     };
@@ -206,9 +185,8 @@ function treeToNodes(tree: GHTreeItem[]): KBNode[] {
 
 /** Load repo-aware content: issues, PRs, README, and directory structure. */
 export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
-  const [issues, prs, tree, readme] = await Promise.all([
+  const [issues, tree, readme] = await Promise.all([
     fetchIssues(source).catch(() => [] as GHIssue[]),
-    fetchPullRequests(source).catch(() => [] as GHIssue[]),
     fetchTree(source).catch(() => [] as GHTreeItem[]),
     fetchFile(source, 'README.md').catch(() => null),
   ]);
@@ -220,7 +198,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   }
 
   nodes.push(...issues.map(issueToNode));
-  nodes.push(...prs.map(prToNode));
+  // PRs are implementation artifacts — not knowledge nodes
   nodes.push(...treeToNodes(tree));
 
   return nodes;
@@ -252,7 +230,10 @@ export function extractClusters(
       if (!configClusters.has(node.cluster)) {
         configClusters.set(node.cluster, {
           id: node.cluster,
-          name: node.cluster.charAt(0).toUpperCase() + node.cluster.slice(1),
+          name: node.cluster
+            .split(/[-_]/)
+            .map(w => w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' '),
           color: palette[colorIdx % palette.length],
         });
         colorIdx++;
