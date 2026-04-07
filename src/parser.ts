@@ -186,12 +186,41 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   // PRs are implementation artifacts — not knowledge nodes
   nodes.push(...dirNodes);
 
-  // Auto-link: README connects to every other node (it's the central document)
+  // Build README with content-based connections (only link what it actually mentions)
   if (readme) {
     const readmeConns: Array<{ to: string; description: string }> = [];
-    for (const n of nodes) {
-      readmeConns.push({ to: n.id, description: 'Documents' });
+    const lower = readme.toLowerCase();
+
+    // Connect to issues referenced by number (#N)
+    const issueRefs = extractIssueRefs(readme);
+    for (const num of issueRefs) {
+      const id = `issue-${num}`;
+      if (issueNodes.some(n => n.id === id)) {
+        readmeConns.push({ to: id, description: `References #${num}` });
+      }
     }
+
+    // Connect to issues whose titles appear in the README text
+    for (const node of issueNodes) {
+      if (readmeConns.some(c => c.to === node.id)) continue; // already linked
+      // Match on meaningful title fragments (skip very short/generic titles)
+      const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      if (titleWords.length === 0) continue;
+      // Require a significant portion of title words to appear
+      const matchCount = titleWords.filter(w => lower.includes(w)).length;
+      if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
+        readmeConns.push({ to: node.id, description: 'Mentions' });
+      }
+    }
+
+    // Connect to directories mentioned by name
+    for (const dir of dirNodes) {
+      const dirName = dir.title.replace(/\/$/, '');
+      if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
+        readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
+      }
+    }
+
     const html = marked.parse(readme, { async: false }) as string;
     nodes.push({
       id: 'readme',
