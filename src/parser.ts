@@ -135,20 +135,6 @@ function issueToNode(issue: GHIssue): KBNode {
   };
 }
 
-function readmeToNode(content: string): KBNode {
-  const html = marked.parse(content, { async: false }) as string;
-  return {
-    id: 'readme',
-    title: 'README',
-    cluster: 'docs',
-    content: html,
-    rawContent: content,
-    emoji: 'Document',
-    connections: [],
-    source: { type: 'readme' },
-  };
-}
-
 /** Group tree items into top-level directory nodes. */
 function treeToNodes(tree: GHTreeItem[]): KBNode[] {
   const topDirs = new Set<string>();
@@ -193,13 +179,46 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
 
   const nodes: KBNode[] = [];
 
+  const issueNodes = issues.map(issueToNode);
+  const dirNodes = treeToNodes(tree);
+
+  nodes.push(...issueNodes);
+  // PRs are implementation artifacts — not knowledge nodes
+  nodes.push(...dirNodes);
+
+  // Auto-link: README connects to every other node (it's the central document)
   if (readme) {
-    nodes.push(readmeToNode(readme));
+    const readmeConns: Array<{ to: string; description: string }> = [];
+    for (const n of nodes) {
+      readmeConns.push({ to: n.id, description: 'Documents' });
+    }
+    const html = marked.parse(readme, { async: false }) as string;
+    nodes.push({
+      id: 'readme',
+      title: 'README',
+      cluster: 'docs',
+      content: html,
+      rawContent: readme,
+      emoji: 'Document',
+      connections: readmeConns,
+      source: { type: 'readme' },
+    });
   }
 
-  nodes.push(...issues.map(issueToNode));
-  // PRs are implementation artifacts — not knowledge nodes
-  nodes.push(...treeToNodes(tree));
+  // Auto-link: issues → directories mentioned in their body
+  const dirNames = dirNodes.map(d => d.title.replace(/\/$/, '')); // e.g. "src", "public"
+  for (const node of issueNodes) {
+    for (let i = 0; i < dirNames.length; i++) {
+      const dir = dirNames[i];
+      if (node.rawContent && (
+        node.rawContent.includes(`${dir}/`) ||
+        node.rawContent.includes(`\`${dir}\``) ||
+        node.rawContent.toLowerCase().includes(dir.toLowerCase())
+      )) {
+        node.connections.push({ to: dirNodes[i].id, description: `References ${dir}/` });
+      }
+    }
+  }
 
   return nodes;
 }
