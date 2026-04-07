@@ -100,6 +100,17 @@ export function getNodeDegrees(graph: KBGraph): Map<string, number> {
   return degrees;
 }
 
+/** Find the hub node — the most-connected node in the graph. */
+export function getHubNodeId(graph: KBGraph): string | null {
+  const degrees = getNodeDegrees(graph);
+  let bestId: string | null = null;
+  let bestDeg = -1;
+  for (const [id, deg] of degrees) {
+    if (deg > bestDeg) { bestDeg = deg; bestId = id; }
+  }
+  return bestId;
+}
+
 /** Find the edge description between two nodes. */
 export function getEdgeDescription(
   graph: KBGraph,
