@@ -326,6 +326,7 @@ function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?: string
     if (item.path.startsWith('.')) continue;
     const parts = item.path.split('/');
     if (parts[0].startsWith('.')) continue;
+    if (excludeSet.has(parts[0])) continue; // skip authored content files
     if (SKIP_FILES.has(parts[parts.length - 1])) continue;
     const ext = '.' + item.path.split('.').pop()?.toLowerCase();
     if (!KEY_EXTENSIONS.has(ext)) continue;
