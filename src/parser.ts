@@ -250,14 +250,16 @@ const KEY_EXTENSIONS = new Set(['.ts', '.tsx', '.md', '.json', '.yaml', '.yml', 
 const SKIP_FILES = new Set(['package-lock.json', '.gitignore', '.eslintrc.json']);
 
 /** Build nodes from the file tree: repo root + directories + key files. */
-function treeToNodes(tree: GHTreeItem[], repoName: string): KBNode[] {
+function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?: string[]): KBNode[] {
   const nodes: KBNode[] = [];
   const dirs = new Map<string, GHTreeItem[]>();
+  const excludeSet = new Set(excludePaths ?? []);
 
   for (const item of tree) {
     if (item.path.startsWith('.')) continue;
     const parts = item.path.split('/');
     if (parts[0].startsWith('.')) continue;
+    if (excludeSet.has(parts[0])) continue; // skip authored content dirs
     if (item.type === 'tree') continue;
 
     const dirPath = parts.length > 1 ? parts.slice(0, Math.min(2, parts.length - 1)).join('/') : '';
@@ -352,7 +354,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   const nodes: KBNode[] = [];
 
   const issueNodes = issues.map(issueToNode);
-  const dirNodes = treeToNodes(tree, source.repo);
+  const dirNodes = treeToNodes(tree, source.repo, source.path ? [source.path.split('/')[0]] : []);
 
   nodes.push(...issueNodes);
   nodes.push(...dirNodes);
