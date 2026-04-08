@@ -11,7 +11,6 @@ import type {
   KBNode,
   KBConfig,
   Cluster,
-  Connection,
   SourceConfig,
 } from '../types';
 import { DEFAULT_CONFIG } from '../types';
@@ -20,11 +19,8 @@ import {
   fetchTree,
   fetchFiles,
   fetchIssues,
-  fetchPullRequests,
-  fetchCommits,
   type GHIssue,
   type GHTreeItem,
-  type GHCommit,
 } from '../api';
 
 // ── Authored mode ──────────────────────────────────────────
@@ -345,86 +341,10 @@ function treeToNodes(tree: GHTreeItem[], repoName: string): KBNode[] {
   return nodes;
 }
 
-/** Convert a PR to a node. */
-function prToNode(pr: GHIssue): KBNode {
-  const body = pr.body ?? '';
-  const html = marked.parse(body, { async: false }) as string;
-  const refs = extractIssueRefs(body);
-
-  return {
-    id: `pr-${pr.number}`,
-    title: `PR #${pr.number}: ${pr.title}`,
-    cluster: 'pull-request',
-    content: html,
-    rawContent: body,
-    emoji: 'Merge',
-    connections: refs.map(n => ({
-      to: `issue-${n}`,
-      description: `Closes #${n}`,
-    })),
-    source: { type: 'pull_request', number: pr.number, state: pr.state },
-  };
-}
-
-/** Convert a commit to a node. */
-function commitToNode(commit: GHCommit, allDirIds: Set<string>, allFileIds: Set<string>): KBNode {
-  const msg = commit.commit.message;
-  const firstLine = msg.split('\n')[0];
-  const body = msg.split('\n').slice(1).join('\n').trim();
-  const html = marked.parse(msg, { async: false }) as string;
-
-  const connections: Connection[] = [];
-
-  // Connect to issues/PRs via #N references in message
-  const refs = extractIssueRefs(msg);
-  for (const n of refs) {
-    connections.push({ to: `issue-${n}`, description: `References #${n}` });
-    connections.push({ to: `pr-${n}`, description: `Part of PR #${n}` });
-  }
-
-  // Connect to directories and files touched
-  if (commit.files) {
-    const touchedDirs = new Set<string>();
-    for (const f of commit.files) {
-      const parts = f.filename.split('/');
-      // Connect to individual file nodes (root files)
-      const fileId = `file-${f.filename}`;
-      if (allFileIds.has(fileId)) {
-        connections.push({ to: fileId, description: f.status ?? 'modified' });
-      }
-      // Connect to directories
-      if (parts.length > 1) {
-        touchedDirs.add(parts[0]);
-        if (parts.length > 2) touchedDirs.add(`${parts[0]}/${parts[1]}`);
-      }
-    }
-    for (const dir of touchedDirs) {
-      const dirId = `dir-${dir}`;
-      if (allDirIds.has(dirId)) {
-        connections.push({ to: dirId, description: `Modifies ${dir}/` });
-      }
-    }
-  }
-
-  return {
-    id: `commit-${commit.sha.substring(0, 7)}`,
-    title: firstLine.length > 60 ? firstLine.substring(0, 57) + '...' : firstLine,
-    cluster: 'commits',
-    content: html,
-    rawContent: body,
-    emoji: 'BranchFork',
-    nodeType: 'section',
-    connections,
-    source: { type: 'commit', sha: commit.sha },
-  };
-}
-
-/** Load repo-aware content: issues, PRs, commits, README, and directory structure. */
+/** Load repo-aware content: issues, README, and directory structure. */
 export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
-  const [issues, prs, commits, tree, readme] = await Promise.all([
+  const [issues, tree, readme] = await Promise.all([
     fetchIssues(source).catch(() => [] as GHIssue[]),
-    fetchPullRequests(source).catch(() => [] as GHIssue[]),
-    fetchCommits(source, 20).catch(() => [] as GHCommit[]),
     fetchTree(source).catch(() => [] as GHTreeItem[]),
     fetchFile(source, 'README.md').catch(() => null),
   ]);
@@ -432,29 +352,10 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   const nodes: KBNode[] = [];
 
   const issueNodes = issues.map(issueToNode);
-  const prNodes = prs.map(prToNode);
   const dirNodes = treeToNodes(tree, source.repo);
-  const dirIdSet = new Set(dirNodes.map(n => n.id));
-  const fileIdSet = new Set(dirNodes.filter(n => n.source.type === 'file').map(n => n.id));
-  const commitNodes = commits.map(c => commitToNode(c, dirIdSet, fileIdSet));
-
-  // Connect PRs ↔ commits: match merge commit messages referencing PR numbers
-  for (const pr of prNodes) {
-    const prNum = (pr.source as { number: number }).number;
-    for (const commit of commitNodes) {
-      const msg = commit.rawContent || commit.title;
-      // Merge commits say "Merge pull request #N" or just reference #N
-      if (msg.includes(`#${prNum}`) || commit.title.includes(`#${prNum}`)) {
-        pr.connections.push({ to: commit.id, description: 'Merged via' });
-        commit.connections.push({ to: pr.id, description: `Part of PR #${prNum}` });
-      }
-    }
-  }
 
   nodes.push(...issueNodes);
-  nodes.push(...prNodes);
   nodes.push(...dirNodes);
-  nodes.push(...commitNodes);
 
   // README as a single node with content-based connections
   if (readme) {
