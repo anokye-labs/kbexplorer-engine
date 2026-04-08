@@ -444,47 +444,38 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   nodes.push(...dirNodes);
   nodes.push(...commitNodes);
 
-  // Split README into parent + section nodes
+  // README as a single node with content-based connections
   if (readme) {
-    const sectionNodes = splitIntoSections(
-      'readme', 'README', readme, 'docs', 'Document',
-      { type: 'readme' }, [...issueNodes, ...dirNodes],
-    );
-    if (sectionNodes.length > 0) {
-      nodes.push(...sectionNodes);
-    } else {
-      // Fallback: single README node with content-based connections
-      const readmeConns: Array<{ to: string; description: string }> = [];
-      const lower = readme.toLowerCase();
-      const issueRefs = extractIssueRefs(readme);
-      for (const num of issueRefs) {
-        const id = `issue-${num}`;
-        if (issueNodes.some(n => n.id === id)) {
-          readmeConns.push({ to: id, description: `References #${num}` });
-        }
+    const readmeConns: Array<{ to: string; description: string }> = [];
+    const lower = readme.toLowerCase();
+    const issueRefs = extractIssueRefs(readme);
+    for (const num of issueRefs) {
+      const id = `issue-${num}`;
+      if (issueNodes.some(n => n.id === id)) {
+        readmeConns.push({ to: id, description: `References #${num}` });
       }
-      for (const node of issueNodes) {
-        if (readmeConns.some(c => c.to === node.id)) continue;
-        const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-        if (titleWords.length === 0) continue;
-        const matchCount = titleWords.filter(w => lower.includes(w)).length;
-        if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
-          readmeConns.push({ to: node.id, description: 'Mentions' });
-        }
-      }
-      for (const dir of dirNodes) {
-        const dirName = dir.title.replace(/\/$/, '');
-        if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
-          readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
-        }
-      }
-      const html = marked.parse(readme, { async: false }) as string;
-      nodes.push({
-        id: 'readme', title: 'README', cluster: 'docs',
-        content: html, rawContent: readme, emoji: 'Document',
-        connections: readmeConns, source: { type: 'readme' },
-      });
     }
+    for (const node of issueNodes) {
+      if (readmeConns.some(c => c.to === node.id)) continue;
+      const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      if (titleWords.length === 0) continue;
+      const matchCount = titleWords.filter(w => lower.includes(w)).length;
+      if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
+        readmeConns.push({ to: node.id, description: 'Mentions' });
+      }
+    }
+    for (const dir of dirNodes) {
+      const dirName = dir.title.replace(/\/$/, '');
+      if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
+        readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
+      }
+    }
+    const html = marked.parse(readme, { async: false }) as string;
+    nodes.push({
+      id: 'readme', title: 'README', cluster: 'docs',
+      content: html, rawContent: readme, emoji: 'Document',
+      connections: readmeConns, source: { type: 'readme' },
+    });
   }
 
   // Split issues with 2+ headings into parent + section nodes
