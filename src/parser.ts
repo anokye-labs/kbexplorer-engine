@@ -5,8 +5,8 @@
  *   - authored: parses markdown files with YAML frontmatter
  *   - repo-aware: maps GitHub issues, PRs, README, and file tree to nodes
  */
-import matter from 'gray-matter';
 import { marked } from 'marked';
+import yaml from 'yaml';
 import type {
   KBNode,
   KBConfig,
@@ -36,8 +36,20 @@ interface AuthoredFrontmatter {
   connections?: Array<{ to: string; description: string }>;
 }
 
+/** Parse YAML frontmatter from a markdown string (no Buffer dependency). */
+function parseFrontmatter(raw: string): { data: Record<string, unknown>; content: string } {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!match) return { data: {}, content: raw };
+  try {
+    const data = yaml.parse(match[1]) as Record<string, unknown>;
+    return { data: data ?? {}, content: match[2] };
+  } catch {
+    return { data: {}, content: raw };
+  }
+}
+
 function parseMarkdownFile(path: string, raw: string): KBNode {
-  const { data, content } = matter(raw);
+  const { data, content } = parseFrontmatter(raw);
   const fm = data as Partial<AuthoredFrontmatter>;
 
   const id = fm.id ?? path.replace(/\.md$/, '').replace(/.*\//, '');
@@ -479,7 +491,6 @@ export async function loadConfig(source: SourceConfig): Promise<KBConfig> {
       ? `${source.path}/config.yaml`
       : 'content/config.yaml'
     );
-    const yaml = await import('yaml');
     const parsed = yaml.parse(raw) as Partial<KBConfig>;
     return { ...DEFAULT_CONFIG, ...parsed, source };
   } catch {
