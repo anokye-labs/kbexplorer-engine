@@ -48,7 +48,7 @@ function parseFrontmatter(raw: string): { data: Record<string, unknown>; content
   }
 }
 
-function parseMarkdownFile(path: string, raw: string): KBNode {
+export function parseMarkdownFile(path: string, raw: string): KBNode {
   const { data, content } = parseFrontmatter(raw);
   const fm = data as Partial<AuthoredFrontmatter>;
 
@@ -119,13 +119,13 @@ function issueIcon(labels: string[]): string {
 }
 
 /** Extract issue cross-references (#N) from body text. */
-function extractIssueRefs(body: string | null): number[] {
+export function extractIssueRefs(body: string | null): number[] {
   if (!body) return [];
   const matches = body.matchAll(/#(\d+)/g);
   return [...matches].map(m => Number(m[1]));
 }
 
-function issueToNode(issue: GHIssue): KBNode {
+export function issueToNode(issue: GHIssue): KBNode {
   const labels = issue.labels.map(l => l.name);
   const cluster = labels[0]?.toLowerCase() ?? 'uncategorized';
   const body = issue.body ?? '';
@@ -148,7 +148,7 @@ function issueToNode(issue: GHIssue): KBNode {
 }
 
 /** Split a markdown document into parent + section nodes at ## headings. */
-function splitIntoSections(
+export function splitIntoSections(
   parentId: string,
   parentTitle: string,
   rawContent: string,
@@ -262,7 +262,7 @@ const KEY_EXTENSIONS = new Set(['.ts', '.tsx', '.md', '.json', '.yaml', '.yml', 
 const SKIP_FILES = new Set(['package-lock.json', '.gitignore', '.eslintrc.json']);
 
 /** Build nodes from the file tree: repo root + directories + key files. */
-function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?: string[]): KBNode[] {
+export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?: string[]): KBNode[] {
   const nodes: KBNode[] = [];
   const dirs = new Map<string, GHTreeItem[]>();
   const excludeSet = new Set(excludePaths ?? []);
