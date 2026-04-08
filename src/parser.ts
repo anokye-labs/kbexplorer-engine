@@ -355,18 +355,32 @@ function prToNode(pr: GHIssue): KBNode {
 }
 
 /** Convert a commit to a node. */
-function commitToNode(commit: GHCommit, allDirIds: Set<string>): KBNode {
+function commitToNode(commit: GHCommit, allDirIds: Set<string>, allFileIds: Set<string>): KBNode {
   const msg = commit.commit.message;
   const firstLine = msg.split('\n')[0];
   const body = msg.split('\n').slice(1).join('\n').trim();
   const html = marked.parse(msg, { async: false }) as string;
 
-  // Connect to directories touched by the commit's files
   const connections: Connection[] = [];
+
+  // Connect to issues/PRs via #N references in message
+  const refs = extractIssueRefs(msg);
+  for (const n of refs) {
+    connections.push({ to: `issue-${n}`, description: `References #${n}` });
+    connections.push({ to: `pr-${n}`, description: `Part of PR #${n}` });
+  }
+
+  // Connect to directories and files touched
   if (commit.files) {
     const touchedDirs = new Set<string>();
     for (const f of commit.files) {
       const parts = f.filename.split('/');
+      // Connect to individual file nodes (root files)
+      const fileId = `file-${f.filename}`;
+      if (allFileIds.has(fileId)) {
+        connections.push({ to: fileId, description: f.status ?? 'modified' });
+      }
+      // Connect to directories
       if (parts.length > 1) {
         touchedDirs.add(parts[0]);
         if (parts.length > 2) touchedDirs.add(`${parts[0]}/${parts[1]}`);
@@ -378,12 +392,6 @@ function commitToNode(commit: GHCommit, allDirIds: Set<string>): KBNode {
         connections.push({ to: dirId, description: `Modifies ${dir}/` });
       }
     }
-  }
-
-  // Connect to issues via #N references in message
-  const refs = extractIssueRefs(msg);
-  for (const n of refs) {
-    connections.push({ to: `issue-${n}`, description: `References #${n}` });
   }
 
   return {
@@ -415,7 +423,21 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   const prNodes = prs.map(prToNode);
   const dirNodes = treeToNodes(tree);
   const dirIdSet = new Set(dirNodes.map(n => n.id));
-  const commitNodes = commits.map(c => commitToNode(c, dirIdSet));
+  const fileIdSet = new Set(dirNodes.filter(n => n.source.type === 'file').map(n => n.id));
+  const commitNodes = commits.map(c => commitToNode(c, dirIdSet, fileIdSet));
+
+  // Connect PRs ↔ commits: match merge commit messages referencing PR numbers
+  for (const pr of prNodes) {
+    const prNum = (pr.source as { number: number }).number;
+    for (const commit of commitNodes) {
+      const msg = commit.rawContent || commit.title;
+      // Merge commits say "Merge pull request #N" or just reference #N
+      if (msg.includes(`#${prNum}`) || commit.title.includes(`#${prNum}`)) {
+        pr.connections.push({ to: commit.id, description: 'Merged via' });
+        commit.connections.push({ to: pr.id, description: `Part of PR #${prNum}` });
+      }
+    }
+  }
 
   nodes.push(...issueNodes);
   nodes.push(...prNodes);
