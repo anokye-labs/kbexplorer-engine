@@ -130,8 +130,9 @@ export function getNodeDegrees(graph: KBGraph): Map<string, number> {
   return degrees;
 }
 
-/** Find the hub node — the most-connected node in the graph. */
+/** Find the hub node — prefer 'readme', then most-connected. */
 export function getHubNodeId(graph: KBGraph): string | null {
+  if (graph.nodes.some(n => n.id === 'readme')) return 'readme';
   const degrees = getNodeDegrees(graph);
   let bestId: string | null = null;
   let bestDeg = -1;
