@@ -72,7 +72,7 @@ function buildEdges(
           from: node.parent,
           to: node.id,
           description: 'Contains',
-          weight: 3, // strong — keeps parent/child close
+          weight: 5, // very strong — keeps parent/child tightly clustered
         });
       }
     }
