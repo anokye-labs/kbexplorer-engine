@@ -11,6 +11,7 @@ import type {
   KBNode,
   KBConfig,
   Cluster,
+  Connection,
   SourceConfig,
 } from '../types';
 import { DEFAULT_CONFIG } from '../types';
@@ -19,8 +20,11 @@ import {
   fetchTree,
   fetchFiles,
   fetchIssues,
+  fetchPullRequests,
+  fetchCommits,
   type GHIssue,
   type GHTreeItem,
+  type GHCommit,
 } from '../api';
 
 // ── Authored mode ──────────────────────────────────────────
@@ -135,44 +139,272 @@ function issueToNode(issue: GHIssue): KBNode {
   };
 }
 
-/** Group tree items into top-level directory nodes. */
-function treeToNodes(tree: GHTreeItem[]): KBNode[] {
-  const topDirs = new Set<string>();
-  for (const item of tree) {
-    const parts = item.path.split('/');
-    if (parts.length > 1 && !parts[0].startsWith('.')) {
-      topDirs.add(parts[0]);
+/** Split a markdown document into parent + section nodes at ## headings. */
+function splitIntoSections(
+  parentId: string,
+  parentTitle: string,
+  rawContent: string,
+  cluster: string,
+  emoji: string,
+  source: KBNode['source'],
+  allNodes: KBNode[],
+): KBNode[] {
+  const lines = rawContent.split('\n');
+  const sections: { title: string; lines: string[] }[] = [];
+  let currentSection: { title: string; lines: string[] } | null = null;
+  const introLines: string[] = [];
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^##\s+(.+)/);
+    if (headingMatch) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { title: headingMatch[1].trim(), lines: [] };
+    } else if (currentSection) {
+      currentSection.lines.push(line);
+    } else {
+      introLines.push(line);
+    }
+  }
+  if (currentSection) sections.push(currentSection);
+
+  // If fewer than 2 sections, don't split — return single node
+  if (sections.length < 2) return [];
+
+  const result: KBNode[] = [];
+  const introContent = introLines.join('\n').trim();
+  const introHtml = introContent ? marked.parse(introContent, { async: false }) as string : '';
+
+  // Parent node — contains intro text, connects to all sections
+  const sectionIds = sections.map((s, i) => `${parentId}/${slugify(s.title, i)}`);
+  const parentNode: KBNode = {
+    id: parentId,
+    title: parentTitle,
+    cluster,
+    content: introHtml,
+    rawContent: introContent,
+    emoji,
+    nodeType: 'parent',
+    connections: sectionIds.map(sid => ({ to: sid, description: 'Contains' })),
+    source,
+  };
+
+  // Content-based connections from parent to other existing nodes
+  const lower = rawContent.toLowerCase();
+  for (const n of allNodes) {
+    if (n.id === parentId) continue;
+    const titleWords = n.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    if (titleWords.length === 0) continue;
+    const matchCount = titleWords.filter(w => lower.includes(w)).length;
+    if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
+      parentNode.connections.push({ to: n.id, description: 'Mentions' });
     }
   }
 
-  return [...topDirs].map(dir => {
-    const files = tree.filter(
-      i => i.path.startsWith(dir + '/') && i.type === 'blob'
-    );
-    const fileList = files
-      .slice(0, 20)
-      .map(f => `- \`${f.path}\``)
-      .join('\n');
-    const content = `## ${dir}/\n\n${files.length} files\n\n${fileList}`;
+  result.push(parentNode);
+
+  // Section nodes
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    const sectionBody = s.lines.join('\n').trim();
+    const sectionHtml = sectionBody ? marked.parse(sectionBody, { async: false }) as string : '';
+    const sectionNode: KBNode = {
+      id: sectionIds[i],
+      title: s.title,
+      cluster,
+      content: sectionHtml,
+      rawContent: sectionBody,
+      emoji,
+      parent: parentId,
+      nodeType: 'section',
+      connections: [],
+      source,
+    };
+
+    // Cross-reference other sections via #N or title mentions
+    const sLower = sectionBody.toLowerCase();
+    const refs = extractIssueRefs(sectionBody);
+    for (const num of refs) {
+      const refId = `issue-${num}`;
+      if (allNodes.some(n => n.id === refId)) {
+        sectionNode.connections.push({ to: refId, description: `References #${num}` });
+      }
+    }
+    // Link to directories mentioned
+    for (const n of allNodes) {
+      if (n.source.type === 'file') {
+        const dirName = n.title.replace(/\/$/, '').toLowerCase();
+        if (sLower.includes(`${dirName}/`) || sLower.includes(`\`${dirName}\``)) {
+          sectionNode.connections.push({ to: n.id, description: `References ${n.title}` });
+        }
+      }
+    }
+
+    result.push(sectionNode);
+  }
+
+  return result;
+}
+
+function slugify(title: string, idx: number): string {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slug || `section-${idx}`;
+}
+/** Key file extensions worth surfacing as individual nodes. */
+const KEY_EXTENSIONS = new Set(['.ts', '.tsx', '.md', '.json', '.yaml', '.yml', '.css']);
+const SKIP_FILES = new Set(['package-lock.json', '.gitignore', '.eslintrc.json']);
+
+/** Build nodes from the file tree: directories + key files. */
+function treeToNodes(tree: GHTreeItem[]): KBNode[] {
+  const nodes: KBNode[] = [];
+  const dirs = new Map<string, GHTreeItem[]>(); // dir path → child blobs
+
+  for (const item of tree) {
+    if (item.path.startsWith('.')) continue;
+    const parts = item.path.split('/');
+    if (parts[0].startsWith('.')) continue;
+
+    if (item.type === 'tree') continue; // we infer dirs from blobs
+
+    // Group into directories (1st and 2nd level)
+    const dirPath = parts.length > 1 ? parts.slice(0, Math.min(2, parts.length - 1)).join('/') : '';
+    if (dirPath) {
+      if (!dirs.has(dirPath)) dirs.set(dirPath, []);
+      dirs.get(dirPath)!.push(item);
+    }
+  }
+
+  // Directory nodes
+  for (const [dirPath, files] of dirs) {
+    const depth = dirPath.split('/').length;
+    const parentDir = depth > 1 ? dirPath.split('/')[0] : undefined;
+    const fileList = files.slice(0, 15).map(f => `- \`${f.path}\``).join('\n');
+    const content = `## ${dirPath}/\n\n${files.length} files\n\n${fileList}`;
     const html = marked.parse(content, { async: false }) as string;
 
-    return {
-      id: `dir-${dir}`,
-      title: `${dir}/`,
+    nodes.push({
+      id: `dir-${dirPath}`,
+      title: `${dirPath}/`,
       cluster: 'code',
       content: html,
       rawContent: content,
       emoji: 'Folder',
+      parent: parentDir ? `dir-${parentDir}` : undefined,
+      nodeType: depth === 1 ? 'parent' : 'section',
       connections: [],
-      source: { type: 'file' as const, path: dir },
-    };
-  });
+      source: { type: 'file', path: dirPath },
+    });
+  }
+
+  // Add parent→child connections for directories
+  for (const [dirPath] of dirs) {
+    const parts = dirPath.split('/');
+    if (parts.length > 1) {
+      const parentId = `dir-${parts[0]}`;
+      const parentNode = nodes.find(n => n.id === parentId);
+      if (parentNode) {
+        parentNode.connections.push({ to: `dir-${dirPath}`, description: 'Contains' });
+      }
+    }
+  }
+
+  // Key individual file nodes (top-level config files, root .md files)
+  for (const item of tree) {
+    if (item.type !== 'blob') continue;
+    if (item.path.includes('/')) continue; // only root-level files
+    if (item.path.startsWith('.')) continue;
+    if (SKIP_FILES.has(item.path)) continue;
+    const ext = '.' + item.path.split('.').pop()?.toLowerCase();
+    if (!KEY_EXTENSIONS.has(ext) && item.path !== 'Dockerfile') continue;
+    if (item.path === 'README.md') continue; // handled separately
+
+    nodes.push({
+      id: `file-${item.path}`,
+      title: item.path,
+      cluster: 'code',
+      content: `<p>Root file: <code>${item.path}</code></p>`,
+      rawContent: item.path,
+      emoji: 'Document',
+      nodeType: 'section',
+      connections: [],
+      source: { type: 'file', path: item.path },
+    });
+  }
+
+  return nodes;
 }
 
-/** Load repo-aware content: issues, PRs, README, and directory structure. */
+/** Convert a PR to a node. */
+function prToNode(pr: GHIssue): KBNode {
+  const body = pr.body ?? '';
+  const html = marked.parse(body, { async: false }) as string;
+  const refs = extractIssueRefs(body);
+
+  return {
+    id: `pr-${pr.number}`,
+    title: `PR #${pr.number}: ${pr.title}`,
+    cluster: 'pull-request',
+    content: html,
+    rawContent: body,
+    emoji: 'Merge',
+    connections: refs.map(n => ({
+      to: `issue-${n}`,
+      description: `Closes #${n}`,
+    })),
+    source: { type: 'pull_request', number: pr.number, state: pr.state },
+  };
+}
+
+/** Convert a commit to a node. */
+function commitToNode(commit: GHCommit, allDirIds: Set<string>): KBNode {
+  const msg = commit.commit.message;
+  const firstLine = msg.split('\n')[0];
+  const body = msg.split('\n').slice(1).join('\n').trim();
+  const html = marked.parse(msg, { async: false }) as string;
+
+  // Connect to directories touched by the commit's files
+  const connections: Connection[] = [];
+  if (commit.files) {
+    const touchedDirs = new Set<string>();
+    for (const f of commit.files) {
+      const parts = f.filename.split('/');
+      if (parts.length > 1) {
+        touchedDirs.add(parts[0]);
+        if (parts.length > 2) touchedDirs.add(`${parts[0]}/${parts[1]}`);
+      }
+    }
+    for (const dir of touchedDirs) {
+      const dirId = `dir-${dir}`;
+      if (allDirIds.has(dirId)) {
+        connections.push({ to: dirId, description: `Modifies ${dir}/` });
+      }
+    }
+  }
+
+  // Connect to issues via #N references in message
+  const refs = extractIssueRefs(msg);
+  for (const n of refs) {
+    connections.push({ to: `issue-${n}`, description: `References #${n}` });
+  }
+
+  return {
+    id: `commit-${commit.sha.substring(0, 7)}`,
+    title: firstLine.length > 60 ? firstLine.substring(0, 57) + '...' : firstLine,
+    cluster: 'commits',
+    content: html,
+    rawContent: body,
+    emoji: 'BranchFork',
+    nodeType: 'section',
+    connections,
+    source: { type: 'commit', sha: commit.sha },
+  };
+}
+
+/** Load repo-aware content: issues, PRs, commits, README, and directory structure. */
 export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
-  const [issues, tree, readme] = await Promise.all([
+  const [issues, prs, commits, tree, readme] = await Promise.all([
     fetchIssues(source).catch(() => [] as GHIssue[]),
+    fetchPullRequests(source).catch(() => [] as GHIssue[]),
+    fetchCommits(source, 20).catch(() => [] as GHCommit[]),
     fetchTree(source).catch(() => [] as GHTreeItem[]),
     fetchFile(source, 'README.md').catch(() => null),
   ]);
@@ -180,59 +412,74 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   const nodes: KBNode[] = [];
 
   const issueNodes = issues.map(issueToNode);
+  const prNodes = prs.map(prToNode);
   const dirNodes = treeToNodes(tree);
+  const dirIdSet = new Set(dirNodes.map(n => n.id));
+  const commitNodes = commits.map(c => commitToNode(c, dirIdSet));
 
   nodes.push(...issueNodes);
-  // PRs are implementation artifacts — not knowledge nodes
+  nodes.push(...prNodes);
   nodes.push(...dirNodes);
+  nodes.push(...commitNodes);
 
-  // Build README with content-based connections (only link what it actually mentions)
+  // Split README into parent + section nodes
   if (readme) {
-    const readmeConns: Array<{ to: string; description: string }> = [];
-    const lower = readme.toLowerCase();
-
-    // Connect to issues referenced by number (#N)
-    const issueRefs = extractIssueRefs(readme);
-    for (const num of issueRefs) {
-      const id = `issue-${num}`;
-      if (issueNodes.some(n => n.id === id)) {
-        readmeConns.push({ to: id, description: `References #${num}` });
+    const sectionNodes = splitIntoSections(
+      'readme', 'README', readme, 'docs', 'Document',
+      { type: 'readme' }, [...issueNodes, ...dirNodes],
+    );
+    if (sectionNodes.length > 0) {
+      nodes.push(...sectionNodes);
+    } else {
+      // Fallback: single README node with content-based connections
+      const readmeConns: Array<{ to: string; description: string }> = [];
+      const lower = readme.toLowerCase();
+      const issueRefs = extractIssueRefs(readme);
+      for (const num of issueRefs) {
+        const id = `issue-${num}`;
+        if (issueNodes.some(n => n.id === id)) {
+          readmeConns.push({ to: id, description: `References #${num}` });
+        }
       }
-    }
-
-    // Connect to issues whose titles appear in the README text
-    for (const node of issueNodes) {
-      if (readmeConns.some(c => c.to === node.id)) continue; // already linked
-      // Match on meaningful title fragments (skip very short/generic titles)
-      const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      if (titleWords.length === 0) continue;
-      // Require a significant portion of title words to appear
-      const matchCount = titleWords.filter(w => lower.includes(w)).length;
-      if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
-        readmeConns.push({ to: node.id, description: 'Mentions' });
+      for (const node of issueNodes) {
+        if (readmeConns.some(c => c.to === node.id)) continue;
+        const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        if (titleWords.length === 0) continue;
+        const matchCount = titleWords.filter(w => lower.includes(w)).length;
+        if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
+          readmeConns.push({ to: node.id, description: 'Mentions' });
+        }
       }
-    }
-
-    // Connect to directories mentioned by name
-    for (const dir of dirNodes) {
-      const dirName = dir.title.replace(/\/$/, '');
-      if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
-        readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
+      for (const dir of dirNodes) {
+        const dirName = dir.title.replace(/\/$/, '');
+        if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
+          readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
+        }
       }
+      const html = marked.parse(readme, { async: false }) as string;
+      nodes.push({
+        id: 'readme', title: 'README', cluster: 'docs',
+        content: html, rawContent: readme, emoji: 'Document',
+        connections: readmeConns, source: { type: 'readme' },
+      });
     }
-
-    const html = marked.parse(readme, { async: false }) as string;
-    nodes.push({
-      id: 'readme',
-      title: 'README',
-      cluster: 'docs',
-      content: html,
-      rawContent: readme,
-      emoji: 'Document',
-      connections: readmeConns,
-      source: { type: 'readme' },
-    });
   }
+
+  // Split issues with 2+ headings into parent + section nodes
+  const expandedIssues: KBNode[] = [];
+  for (const node of issueNodes) {
+    const sectionNodes = splitIntoSections(
+      node.id, node.title, node.rawContent, node.cluster, node.emoji ?? 'Pin',
+      node.source, [...issueNodes, ...dirNodes],
+    );
+    if (sectionNodes.length > 0) {
+      // Replace flat issue with parent + sections
+      const idx = nodes.indexOf(node);
+      if (idx >= 0) nodes.splice(idx, 1);
+      expandedIssues.push(...sectionNodes);
+    }
+  }
+  nodes.push(...expandedIssues);
 
   // Auto-link: issues → directories mentioned in their body
   const dirNames = dirNodes.map(d => d.title.replace(/\/$/, '')); // e.g. "src", "public"
