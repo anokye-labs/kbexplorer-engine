@@ -253,19 +253,17 @@ function slugify(title: string, idx: number): string {
 const KEY_EXTENSIONS = new Set(['.ts', '.tsx', '.md', '.json', '.yaml', '.yml', '.css']);
 const SKIP_FILES = new Set(['package-lock.json', '.gitignore', '.eslintrc.json']);
 
-/** Build nodes from the file tree: directories + key files. */
-function treeToNodes(tree: GHTreeItem[]): KBNode[] {
+/** Build nodes from the file tree: repo root + directories + key files. */
+function treeToNodes(tree: GHTreeItem[], repoName: string): KBNode[] {
   const nodes: KBNode[] = [];
-  const dirs = new Map<string, GHTreeItem[]>(); // dir path → child blobs
+  const dirs = new Map<string, GHTreeItem[]>();
 
   for (const item of tree) {
     if (item.path.startsWith('.')) continue;
     const parts = item.path.split('/');
     if (parts[0].startsWith('.')) continue;
+    if (item.type === 'tree') continue;
 
-    if (item.type === 'tree') continue; // we infer dirs from blobs
-
-    // Group into directories (1st and 2nd level)
     const dirPath = parts.length > 1 ? parts.slice(0, Math.min(2, parts.length - 1)).join('/') : '';
     if (dirPath) {
       if (!dirs.has(dirPath)) dirs.set(dirPath, []);
@@ -273,10 +271,27 @@ function treeToNodes(tree: GHTreeItem[]): KBNode[] {
     }
   }
 
-  // Directory nodes
+  // Repo root node
+  const topDirs = [...dirs.keys()].filter(d => !d.includes('/'));
+  const rootFiles = tree.filter(i => i.type === 'blob' && !i.path.includes('/') && !i.path.startsWith('.'));
+  const rootContent = `## ${repoName}\n\n${topDirs.length} directories, ${rootFiles.length} root files`;
+  const rootHtml = marked.parse(rootContent, { async: false }) as string;
+  nodes.push({
+    id: 'repo-root',
+    title: repoName,
+    cluster: 'code',
+    content: rootHtml,
+    rawContent: rootContent,
+    emoji: 'Folder',
+    nodeType: 'parent',
+    connections: [],
+    source: { type: 'file', path: '/' },
+  });
+
+  // Directory nodes — top-level are children of repo-root
   for (const [dirPath, files] of dirs) {
     const depth = dirPath.split('/').length;
-    const parentDir = depth > 1 ? dirPath.split('/')[0] : undefined;
+    const parentId = depth === 1 ? 'repo-root' : `dir-${dirPath.split('/')[0]}`;
     const fileList = files.slice(0, 15).map(f => `- \`${f.path}\``).join('\n');
     const content = `## ${dirPath}/\n\n${files.length} files\n\n${fileList}`;
     const html = marked.parse(content, { async: false }) as string;
@@ -288,42 +303,39 @@ function treeToNodes(tree: GHTreeItem[]): KBNode[] {
       content: html,
       rawContent: content,
       emoji: 'Folder',
-      parent: parentDir ? `dir-${parentDir}` : undefined,
+      parent: parentId,
       nodeType: depth === 1 ? 'parent' : 'section',
       connections: [],
       source: { type: 'file', path: dirPath },
     });
   }
 
-  // Add parent→child connections for directories
-  for (const [dirPath] of dirs) {
-    const parts = dirPath.split('/');
-    if (parts.length > 1) {
-      const parentId = `dir-${parts[0]}`;
-      const parentNode = nodes.find(n => n.id === parentId);
-      if (parentNode) {
-        parentNode.connections.push({ to: `dir-${dirPath}`, description: 'Contains' });
-      }
-    }
-  }
-
-  // Key individual file nodes (top-level config files, root .md files)
+  // File nodes inside directories (key source files)
   for (const item of tree) {
     if (item.type !== 'blob') continue;
-    if (item.path.includes('/')) continue; // only root-level files
     if (item.path.startsWith('.')) continue;
-    if (SKIP_FILES.has(item.path)) continue;
+    const parts = item.path.split('/');
+    if (parts[0].startsWith('.')) continue;
+    if (SKIP_FILES.has(parts[parts.length - 1])) continue;
     const ext = '.' + item.path.split('.').pop()?.toLowerCase();
-    if (!KEY_EXTENSIONS.has(ext) && item.path !== 'Dockerfile') continue;
-    if (item.path === 'README.md') continue; // handled separately
+    if (!KEY_EXTENSIONS.has(ext)) continue;
+    if (item.path === 'README.md') continue;
+
+    // Find parent dir (up to 2 levels)
+    const parentDir = parts.length > 2
+      ? `dir-${parts[0]}/${parts[1]}`
+      : parts.length > 1
+      ? `dir-${parts[0]}`
+      : 'repo-root';
 
     nodes.push({
       id: `file-${item.path}`,
-      title: item.path,
+      title: parts[parts.length - 1],
       cluster: 'code',
-      content: `<p>Root file: <code>${item.path}</code></p>`,
+      content: `<p><code>${item.path}</code></p>`,
       rawContent: item.path,
       emoji: 'Document',
+      parent: parentDir,
       nodeType: 'section',
       connections: [],
       source: { type: 'file', path: item.path },
@@ -421,7 +433,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
 
   const issueNodes = issues.map(issueToNode);
   const prNodes = prs.map(prToNode);
-  const dirNodes = treeToNodes(tree);
+  const dirNodes = treeToNodes(tree, source.repo);
   const dirIdSet = new Set(dirNodes.map(n => n.id));
   const fileIdSet = new Set(dirNodes.filter(n => n.source.type === 'file').map(n => n.id));
   const commitNodes = commits.map(c => commitToNode(c, dirIdSet, fileIdSet));
@@ -470,10 +482,13 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
         readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
       }
     }
+    // README is a root file — connect to repo root
+    readmeConns.push({ to: 'repo-root', description: 'Documents' });
     const html = marked.parse(readme, { async: false }) as string;
     nodes.push({
       id: 'readme', title: 'README', cluster: 'docs',
       content: html, rawContent: readme, emoji: 'Document',
+      parent: 'repo-root',
       connections: readmeConns, source: { type: 'readme' },
     });
   }

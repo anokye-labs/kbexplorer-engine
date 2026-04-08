@@ -8,8 +8,37 @@ import type { KBNode, KBGraph, KBEdge, Cluster } from '../types';
 export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const edges = buildEdges(nodes, nodeMap);
-  const related = computeRelated(nodes, edges);
 
+  // Connect orphan nodes to a cluster sibling or the hub
+  const connected = new Set<string>();
+  for (const e of edges) { connected.add(e.from); connected.add(e.to); }
+  const orphans = nodes.filter(n => !connected.has(n.id));
+  if (orphans.length > 0) {
+    // Find hub (most-connected node)
+    const degrees = new Map<string, number>();
+    for (const n of nodes) degrees.set(n.id, 0);
+    for (const e of edges) {
+      degrees.set(e.from, (degrees.get(e.from) ?? 0) + 1);
+      degrees.set(e.to, (degrees.get(e.to) ?? 0) + 1);
+    }
+    let hubId = nodes[0]?.id;
+    let hubDeg = 0;
+    for (const [id, deg] of degrees) {
+      if (deg > hubDeg) { hubDeg = deg; hubId = id; }
+    }
+
+    for (const orphan of orphans) {
+      // Try to find a same-cluster node that's already connected
+      const sibling = nodes.find(n => n.id !== orphan.id && n.cluster === orphan.cluster && connected.has(n.id));
+      const targetId = sibling?.id ?? hubId;
+      if (targetId) {
+        edges.push({ from: targetId, to: orphan.id, description: 'Related', weight: 0.5 });
+        connected.add(orphan.id);
+      }
+    }
+  }
+
+  const related = computeRelated(nodes, edges);
   return { nodes, edges, clusters, related };
 }
 
@@ -21,7 +50,6 @@ function buildEdges(
   const edgeSet = new Map<string, KBEdge>();
 
   for (const node of nodes) {
-    // Explicit connections from frontmatter / cross-references
     for (const conn of node.connections) {
       if (nodeMap.has(conn.to)) {
         const key = edgeKey(node.id, conn.to);
@@ -30,12 +58,13 @@ function buildEdges(
             from: node.id,
             to: conn.to,
             description: conn.description,
+            weight: 1,
           });
         }
       }
     }
 
-    // Parent → child edges
+    // Parent → child edges (strong containment)
     if (node.parent && nodeMap.has(node.parent)) {
       const key = edgeKey(node.parent, node.id);
       if (!edgeSet.has(key)) {
@@ -43,6 +72,7 @@ function buildEdges(
           from: node.parent,
           to: node.id,
           description: 'Contains',
+          weight: 3, // strong — keeps parent/child close
         });
       }
     }
