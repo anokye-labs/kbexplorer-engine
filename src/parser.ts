@@ -59,18 +59,19 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   // Start with frontmatter connections
   const connections: Connection[] = (fm.connections ?? []).map(c => ({
     to: c.to,
+    type: 'frontmatter' as const,
     description: c.description ?? '',
+    source: 'frontmatter' as const,
   }));
 
   // Extract inline markdown links: [text](target)
   const connectedTo = new Set(connections.map(c => c.to));
   for (const m of content.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
     const target = m[2].trim();
-    // Skip URLs, anchors, images, and already-connected targets
     if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
     if (target.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) continue;
     if (connectedTo.has(target)) continue;
-    connections.push({ to: target, description: m[1] });
+    connections.push({ to: target, type: 'references', description: m[1], source: 'inline' });
     connectedTo.add(target);
   }
 
@@ -79,14 +80,14 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     const filePath = m[0];
     const fileNodeId = `file-${filePath}`;
     if (connectedTo.has(fileNodeId)) continue;
-    connections.push({ to: fileNodeId, description: `References ${filePath}` });
+    connections.push({ to: fileNodeId, type: 'references', description: `References ${filePath}`, source: 'inferred' });
     connectedTo.add(fileNodeId);
   }
 
   // Implicit link back to source file
   const sourceFileId = `file-${path}`;
   if (!connectedTo.has(sourceFileId)) {
-    connections.push({ to: sourceFileId, description: 'Derived from' });
+    connections.push({ to: sourceFileId, type: 'derived_from', description: 'Derived from', source: 'inferred' });
   }
 
   return {
@@ -172,7 +173,9 @@ export function issueToNode(issue: GHIssue): KBNode {
     emoji: issueIcon(labels),
     connections: refs.map(n => ({
       to: `issue-${n}`,
+      type: 'cross_references' as const,
       description: `References #${n}`,
+      source: 'inline' as const,
     })),
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
   };
@@ -223,7 +226,7 @@ export function splitIntoSections(
     rawContent: introContent,
     emoji,
     nodeType: 'parent',
-    connections: sectionIds.map(sid => ({ to: sid, description: 'Contains' })),
+    connections: sectionIds.map(sid => ({ to: sid, type: 'contains' as const, description: 'Contains', source: 'inferred' as const })),
     source,
   };
 
@@ -235,7 +238,7 @@ export function splitIntoSections(
     if (titleWords.length === 0) continue;
     const matchCount = titleWords.filter(w => lower.includes(w)).length;
     if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
-      parentNode.connections.push({ to: n.id, description: 'Mentions' });
+      parentNode.connections.push({ to: n.id, type: 'mentions', description: 'Mentions', source: 'inferred' });
     }
   }
 
@@ -265,7 +268,7 @@ export function splitIntoSections(
     for (const num of refs) {
       const refId = `issue-${num}`;
       if (allNodes.some(n => n.id === refId)) {
-        sectionNode.connections.push({ to: refId, description: `References #${num}` });
+        sectionNode.connections.push({ to: refId, type: 'cross_references', description: `References #${num}`, source: 'inline' });
       }
     }
     // Link to directories mentioned
@@ -273,7 +276,7 @@ export function splitIntoSections(
       if (n.source.type === 'file') {
         const dirName = n.title.replace(/\/$/, '').toLowerCase();
         if (sLower.includes(`${dirName}/`) || sLower.includes(`\`${dirName}\``)) {
-          sectionNode.connections.push({ to: n.id, description: `References ${n.title}` });
+          sectionNode.connections.push({ to: n.id, type: 'references', description: `References ${n.title}`, source: 'inferred' });
         }
       }
     }
@@ -405,13 +408,13 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
 
   // README as a single node with content-based connections
   if (readme) {
-    const readmeConns: Array<{ to: string; description: string }> = [];
+    const readmeConns: Connection[] = [];
     const lower = readme.toLowerCase();
     const issueRefs = extractIssueRefs(readme);
     for (const num of issueRefs) {
       const id = `issue-${num}`;
       if (issueNodes.some(n => n.id === id)) {
-        readmeConns.push({ to: id, description: `References #${num}` });
+        readmeConns.push({ to: id, type: 'cross_references', description: `References #${num}`, source: 'inline' });
       }
     }
     for (const node of issueNodes) {
@@ -420,17 +423,16 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
       if (titleWords.length === 0) continue;
       const matchCount = titleWords.filter(w => lower.includes(w)).length;
       if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
-        readmeConns.push({ to: node.id, description: 'Mentions' });
+        readmeConns.push({ to: node.id, type: 'mentions', description: 'Mentions', source: 'inferred' });
       }
     }
     for (const dir of dirNodes) {
       const dirName = dir.title.replace(/\/$/, '');
       if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
-        readmeConns.push({ to: dir.id, description: `References ${dirName}/` });
+        readmeConns.push({ to: dir.id, type: 'references', description: `References ${dirName}/`, source: 'inferred' });
       }
     }
-    // README is a root file — connect to repo root
-    readmeConns.push({ to: 'repo-root', description: 'Documents' });
+    readmeConns.push({ to: 'repo-root', type: 'contains', description: 'Documents', source: 'inferred' });
     const html = marked.parse(readme, { async: false }) as string;
     nodes.push({
       id: 'readme', title: 'README', cluster: 'docs',
@@ -466,7 +468,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
         node.rawContent.includes(`\`${dir}\``) ||
         node.rawContent.toLowerCase().includes(dir.toLowerCase())
       )) {
-        node.connections.push({ to: dirNodes[i].id, description: `References ${dir}/` });
+        node.connections.push({ to: dirNodes[i].id, type: 'references', description: `References ${dir}/`, source: 'inferred' });
       }
     }
   }

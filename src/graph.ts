@@ -2,7 +2,8 @@
  * Graph engine: computes the knowledge graph from parsed nodes.
  * Builds edges, clusters, related nodes, and layout positions.
  */
-import type { KBNode, KBGraph, KBEdge, Cluster } from '../types';
+import type { KBNode, KBGraph, KBEdge, Cluster, EdgeType } from '../types';
+import { EDGE_TYPE_WEIGHTS } from '../types';
 
 /** Build the full knowledge graph from a list of nodes and cluster definitions. */
 export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
@@ -32,7 +33,7 @@ export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
       const sibling = nodes.find(n => n.id !== orphan.id && n.cluster === orphan.cluster && connected.has(n.id));
       const targetId = sibling?.id ?? hubId;
       if (targetId) {
-        edges.push({ from: targetId, to: orphan.id, description: 'Related', weight: 0.5 });
+        edges.push({ from: targetId, to: orphan.id, type: 'related', description: 'Related', source: 'inferred', weight: EDGE_TYPE_WEIGHTS.related });
         connected.add(orphan.id);
       }
     }
@@ -54,11 +55,14 @@ function buildEdges(
       if (nodeMap.has(conn.to)) {
         const key = edgeKey(node.id, conn.to);
         if (!edgeSet.has(key)) {
+          const edgeType: EdgeType = conn.type ?? 'references';
           edgeSet.set(key, {
             from: node.id,
             to: conn.to,
+            type: edgeType,
             description: conn.description,
-            weight: 1,
+            source: conn.source ?? 'frontmatter',
+            weight: conn.weight ?? EDGE_TYPE_WEIGHTS[edgeType] ?? 1,
           });
         }
       }
@@ -71,8 +75,10 @@ function buildEdges(
         edgeSet.set(key, {
           from: node.parent,
           to: node.id,
+          type: 'contains',
           description: 'Contains',
-          weight: 5, // very strong — keeps parent/child tightly clustered
+          source: 'inferred',
+          weight: EDGE_TYPE_WEIGHTS.contains,
         });
       }
     }
