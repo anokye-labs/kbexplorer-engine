@@ -11,6 +11,7 @@ import type {
   KBNode,
   KBConfig,
   Cluster,
+  Connection,
   SourceConfig,
 } from '../types';
 import { DEFAULT_CONFIG } from '../types';
@@ -55,6 +56,39 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   const id = fm.id ?? path.replace(/\.md$/, '').replace(/.*\//, '');
   const html = marked.parse(content, { async: false }) as string;
 
+  // Start with frontmatter connections
+  const connections: Connection[] = (fm.connections ?? []).map(c => ({
+    to: c.to,
+    description: c.description ?? '',
+  }));
+
+  // Extract inline markdown links: [text](target)
+  const connectedTo = new Set(connections.map(c => c.to));
+  for (const m of content.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
+    const target = m[2].trim();
+    // Skip URLs, anchors, images, and already-connected targets
+    if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
+    if (target.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) continue;
+    if (connectedTo.has(target)) continue;
+    connections.push({ to: target, description: m[1] });
+    connectedTo.add(target);
+  }
+
+  // Extract file path references: src/path/file.ts, scripts/file.js, etc.
+  for (const m of content.matchAll(/(?:src|scripts|content|public)\/[\w./-]+\.\w+/g)) {
+    const filePath = m[0];
+    const fileNodeId = `file-${filePath}`;
+    if (connectedTo.has(fileNodeId)) continue;
+    connections.push({ to: fileNodeId, description: `References ${filePath}` });
+    connectedTo.add(fileNodeId);
+  }
+
+  // Implicit link back to source file
+  const sourceFileId = `file-${path}`;
+  if (!connectedTo.has(sourceFileId)) {
+    connections.push({ to: sourceFileId, description: 'Derived from' });
+  }
+
   return {
     id,
     title: fm.title ?? id,
@@ -65,10 +99,7 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     image: fm.image,
     sprite: fm.sprite,
     parent: fm.parent,
-    connections: (fm.connections ?? []).map(c => ({
-      to: c.to,
-      description: c.description ?? '',
-    })),
+    connections,
     source: { type: 'authored', file: path },
   };
 }
