@@ -92,22 +92,29 @@ function edgeKey(a: string, b: string): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
-/** Compute related nodes for each node (neighbors sorted by degree, max 8). */
+/** Compute related nodes for each node, ranked by edge weight. */
 function computeRelated(
   nodes: KBNode[],
   edges: KBEdge[]
 ): Record<string, string[]> {
-  // Build adjacency list
-  const adj = new Map<string, Set<string>>();
+  // Build adjacency with edge weights
+  const adj = new Map<string, Map<string, number>>();
   for (const node of nodes) {
-    adj.set(node.id, new Set());
+    adj.set(node.id, new Map());
   }
   for (const edge of edges) {
-    adj.get(edge.from)?.add(edge.to);
-    adj.get(edge.to)?.add(edge.from);
+    const fwd = adj.get(edge.from);
+    const rev = adj.get(edge.to);
+    // Keep the highest weight if multiple edges exist between same pair
+    if (fwd && (!fwd.has(edge.to) || edge.weight > (fwd.get(edge.to) ?? 0))) {
+      fwd.set(edge.to, edge.weight);
+    }
+    if (rev && (!rev.has(edge.from) || edge.weight > (rev.get(edge.from) ?? 0))) {
+      rev.set(edge.from, edge.weight);
+    }
   }
 
-  // Degree map for sorting
+  // Degree map for tie-breaking
   const degree = new Map<string, number>();
   for (const [id, neighbors] of adj) {
     degree.set(id, neighbors.size);
@@ -115,9 +122,16 @@ function computeRelated(
 
   const related: Record<string, string[]> = {};
   for (const [id, neighbors] of adj) {
-    related[id] = [...neighbors]
-      .sort((a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0))
-      .slice(0, 8);
+    related[id] = [...neighbors.entries()]
+      .sort((a, b) => {
+        // Primary: edge weight (higher = more relevant)
+        const weightDiff = b[1] - a[1];
+        if (Math.abs(weightDiff) > 0.01) return weightDiff;
+        // Secondary: target degree (higher = more connected)
+        return (degree.get(b[0]) ?? 0) - (degree.get(a[0]) ?? 0);
+      })
+      .map(([neighborId]) => neighborId)
+      .slice(0, 12);
   }
 
   return related;
