@@ -398,7 +398,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
   const nodes: KBNode[] = [];
 
   const issueNodes = issues.map(issueToNode);
-  const dirNodes = treeToNodes(tree, source.repo, source.path ? [source.path.split('/')[0]] : []);
+  const dirNodes = treeToNodes(tree, source.repo);
 
   nodes.push(...issueNodes);
   nodes.push(...dirNodes);
