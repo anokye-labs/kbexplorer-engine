@@ -351,7 +351,13 @@ function deriveConnections(
   for (const node of allNodes) {
     nodeById.set(node.id, node);
     const p = getNodePath(node);
-    if (p) pathToId.set(p, node.id);
+    if (p) {
+      // Prefer authored nodes over file nodes for the same path
+      const existing = pathToId.get(p);
+      if (!existing || node.source.type === 'authored') {
+        pathToId.set(p, node.id);
+      }
+    }
   }
 
   for (const entry of entries) {

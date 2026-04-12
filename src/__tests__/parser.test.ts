@@ -32,10 +32,12 @@ Body text.`;
     expect(node.title).toBe('Test Node');
     expect(node.cluster).toBe('engine');
     expect(node.emoji).toBe('🔧');
-    expect(node.connections).toHaveLength(1);
-    expect(node.connections[0].to).toBe('other');
+    // frontmatter connection + derived_from edge
+    expect(node.connections.some(c => c.to === 'other')).toBe(true);
+    expect(node.connections.some(c => c.type === 'derived_from')).toBe(true);
     expect(node.content).toContain('<h1>');
     expect(node.source).toEqual({ type: 'authored', file: 'content/test.md' });
+    expect(node.identity).toBe('urn:content:test-node');
   });
 
   it('generates id from filename when no frontmatter id', () => {
@@ -54,7 +56,8 @@ cluster: misc
 Content here.`;
 
     const node = parseMarkdownFile('content/solo.md', raw);
-    expect(node.connections).toEqual([]);
+    // Only connection should be the auto-generated derived_from edge
+    expect(node.connections.every(c => c.type === 'derived_from')).toBe(true);
   });
 
   it('handles missing frontmatter', () => {
