@@ -15,6 +15,7 @@ import type {
   SourceConfig,
 } from '../types';
 import { DEFAULT_CONFIG } from '../types';
+import { assignIdentity } from './identity';
 import {
   fetchFile,
   fetchTree,
@@ -90,7 +91,7 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     connections.push({ to: sourceFileId, type: 'derived_from', description: 'Derived from', source: 'inferred' });
   }
 
-  return {
+  const node: KBNode = {
     id,
     title: fm.title ?? id,
     cluster: fm.cluster ?? 'default',
@@ -103,6 +104,8 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     connections,
     source: { type: 'authored', file: path },
   };
+  node.identity = assignIdentity(node);
+  return node;
 }
 
 /** Load authored content from a content directory in the repo. */
@@ -164,7 +167,7 @@ export function issueToNode(issue: GHIssue): KBNode {
   const html = marked.parse(body, { async: false }) as string;
   const refs = extractIssueRefs(body);
 
-  return {
+  const node: KBNode = {
     id: `issue-${issue.number}`,
     title: issue.title,
     cluster,
@@ -179,6 +182,8 @@ export function issueToNode(issue: GHIssue): KBNode {
     })),
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
   };
+  node.identity = assignIdentity(node);
+  return node;
 }
 
 /** Split a markdown document into parent + section nodes at ## headings. */
@@ -320,7 +325,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
   const rootFiles = tree.filter(i => i.type === 'blob' && !i.path.includes('/') && !i.path.startsWith('.'));
   const rootContent = `## ${repoName}\n\n${topDirs.length} directories, ${rootFiles.length} root files`;
   const rootHtml = marked.parse(rootContent, { async: false }) as string;
-  nodes.push({
+  const rootNode: KBNode = {
     id: 'repo-root',
     title: repoName,
     cluster: 'code',
@@ -330,7 +335,9 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
     nodeType: 'parent',
     connections: [],
     source: { type: 'file', path: '/' },
-  });
+  };
+  rootNode.identity = assignIdentity(rootNode);
+  nodes.push(rootNode);
 
   // Directory nodes — top-level are children of repo-root
   for (const [dirPath, files] of dirs) {
@@ -350,6 +357,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
       parent: parentId,
       nodeType: depth === 1 ? 'parent' : 'section',
       connections: [],
+      identity: `urn:file:${dirPath}`,
       source: { type: 'file', path: dirPath },
     });
   }
@@ -383,6 +391,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
       parent: parentDir,
       nodeType: 'section',
       connections: [],
+      identity: `urn:file:${item.path}`,
       source: { type: 'file', path: item.path },
     });
   }
@@ -450,6 +459,7 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
       id: 'readme', title: 'README', cluster: 'docs',
       content: html, rawContent: readme, emoji: 'Document',
       parent: 'repo-root',
+      identity: 'urn:content:readme',
       connections: readmeConns, source: { type: 'readme' },
     });
   }

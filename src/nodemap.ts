@@ -111,6 +111,7 @@ function buildFileNode(
     emoji: entry.emoji,
     display,
     connections: [],
+    identity: `urn:file:${filePath}`,
     source,
   };
 }
