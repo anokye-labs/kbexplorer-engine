@@ -358,10 +358,13 @@ describe('trimGraphToLimits', () => {
     expect(result.graph.nodes.some(n => n.id === 'n75')).toBe(true);
   });
 
-  it('caps edges at maxEdges', () => {
+  it('keeps all edges between visible nodes (no edge cap)', () => {
     const graph = makeLargeGraph(80);
-    const result = trimGraphToLimits(graph, null, 20, 10);
-    expect(result.graph.edges.length).toBeLessThanOrEqual(10);
+    const result = trimGraphToLimits(graph, null, 20, Infinity);
+    // All edges between kept nodes should be present
+    const keptIds = new Set(result.graph.nodes.map(n => n.id));
+    const expectedEdges = graph.edges.filter(e => keptIds.has(e.from) && keptIds.has(e.to));
+    expect(result.graph.edges.length).toBe(expectedEdges.length);
   });
 
   it('maintains at least 1 node per cluster', () => {
