@@ -18,6 +18,7 @@ export class AuthoredProvider implements GraphProvider {
     private nodemapRaw?: string | null,
     private nodemapFiles?: Record<string, string>,
     private nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>>,
+    private listFiles?: (pattern: string) => Promise<string[]>,
   ) {}
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
@@ -51,7 +52,7 @@ export class AuthoredProvider implements GraphProvider {
       const nodemapNodes = await loadNodeMap(
         this.nodemapRaw,
         readFile,
-        undefined, // listFiles (glob) not needed for pre-fetched content
+        this.listFiles,
         listDirectory,
       );
 
