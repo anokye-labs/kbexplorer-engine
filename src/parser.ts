@@ -36,6 +36,7 @@ interface AuthoredFrontmatter {
   sprite?: string;
   parent?: string;
   derived?: boolean;
+  display?: import('../types').DisplayMode;
   connections?: Array<{ to: string; description: string }>;
 }
 
@@ -103,6 +104,7 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     sprite: fm.sprite,
     parent: fm.parent,
     derived: fm.derived === true,
+    display: fm.display,
     connections,
     source: { type: 'authored', file: path },
   };
