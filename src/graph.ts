@@ -150,8 +150,9 @@ export function getNodeDegrees(graph: KBGraph): Map<string, number> {
   return degrees;
 }
 
-/** Find the hub node — prefer 'readme', then authored 'overview', then most-connected. */
+/** Find the hub node — prefer 'home', then 'readme', then 'overview', then most-connected. */
 export function getHubNodeId(graph: KBGraph): string | null {
+  if (graph.nodes.some(n => n.id === 'home')) return 'home';
   if (graph.nodes.some(n => n.id === 'readme')) return 'readme';
   if (graph.nodes.some(n => n.id === 'overview')) return 'overview';
   const degrees = getNodeDegrees(graph);
