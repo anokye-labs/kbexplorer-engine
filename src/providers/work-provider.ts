@@ -85,7 +85,7 @@ export class WorkProvider implements GraphProvider {
         rawContent: commitContent,
         emoji: 'History',
         connections: [],
-        source: { type: 'file', path: '.git/log' },
+        source: { type: 'commit', sha: 'summary' },
         provider: 'work',
       });
     }
