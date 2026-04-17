@@ -27,12 +27,27 @@ export class WorkProvider implements GraphProvider {
       html_url: string;
       created_at: string;
       updated_at: string;
+      head_branch?: string;
     }>,
     private commits: Array<{
       sha: string;
       commit: { message: string; author: { name: string; date: string } };
       html_url: string;
     }>,
+    private branches: Array<{ name: string; protected: boolean }> = [],
+    private repoMetadata: {
+      name: string;
+      description: string;
+      html_url: string;
+      default_branch: string;
+      stargazers_count: number;
+      forks_count: number;
+      private: boolean;
+      topics: string[];
+      primary_language: string;
+      languages: Array<{ name: string; size: number }>;
+      owner: { login: string; avatar_url: string };
+    } | null = null,
   ) {}
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
@@ -82,6 +97,11 @@ export class WorkProvider implements GraphProvider {
           connections.push({ to, description: `References #${n}` });
           seen.add(to);
         }
+      }
+
+      // PR → branch connection
+      if (pr.head_branch) {
+        connections.push({ to: `branch-${pr.head_branch}`, description: `Branch: ${pr.head_branch}` });
       }
 
       const prNode: KBNode = {
@@ -136,6 +156,72 @@ export class WorkProvider implements GraphProvider {
         emoji: 'History',
         connections: commitConnections,
         source: { type: 'commit', sha: 'summary' },
+        provider: 'work',
+      });
+    }
+
+    // ── Repository node ──────────────────────────────────
+    if (this.repoMetadata) {
+      const meta = this.repoMetadata;
+      const langList = meta.languages
+        .sort((a, b) => b.size - a.size)
+        .slice(0, 10)
+        .map(l => `- **${l.name}** (${Math.round(l.size / 1024)}KB)`)
+        .join('\n');
+      const topicBadges = meta.topics.map(t => `\`${t}\``).join(' ');
+
+      const repoContent = [
+        `${meta.private ? '🔒 Private' : '🌐 Public'} · ⭐ ${meta.stargazers_count} · 🍴 ${meta.forks_count}`,
+        meta.description ? `\n${meta.description}` : '',
+        topicBadges ? `\n\nTopics: ${topicBadges}` : '',
+        `\n\n## Languages\n\n${langList || 'No language data'}`,
+        `\n\nDefault branch: \`${meta.default_branch}\``,
+        `\n\n[View on GitHub ↗](${meta.html_url})`,
+      ].join('');
+
+      const repoHtml = marked.parse(repoContent, { async: false }) as string;
+      const repoConns: Array<{ to: string; description: string }> = [
+        { to: 'readme', description: 'README' },
+        { to: `branch-${meta.default_branch}`, description: `Default branch` },
+      ];
+
+      nodes.push({
+        id: 'repo-meta',
+        title: meta.name,
+        cluster: 'infra',
+        content: repoHtml,
+        rawContent: repoContent,
+        emoji: 'Organization',
+        display: 'repository' as any,
+        image: meta.owner.avatar_url || undefined,
+        connections: repoConns,
+        source: { type: 'repository', owner: meta.owner.login, repo: meta.name },
+        provider: 'work',
+      });
+    }
+
+    // ── Branch nodes ─────────────────────────────────────
+    for (const branch of this.branches) {
+      const protectedBadge = branch.protected ? '🛡️ Protected' : '';
+      const isDefault = this.repoMetadata?.default_branch === branch.name;
+      const branchContent = [
+        `${isDefault ? '**Default branch**' : 'Branch'} · \`${branch.name}\``,
+        protectedBadge ? ` · ${protectedBadge}` : '',
+      ].join('');
+
+      const branchHtml = marked.parse(branchContent, { async: false }) as string;
+      const branchConns: Array<{ to: string; description: string }> = [];
+      if (isDefault) branchConns.push({ to: 'repo-meta', description: 'Repository' });
+
+      nodes.push({
+        id: `branch-${branch.name}`,
+        title: branch.name,
+        cluster: isDefault ? 'infra' : 'pull-request',
+        content: branchHtml,
+        rawContent: branchContent,
+        emoji: branch.protected ? 'ShieldCheckmark' : 'Branch',
+        connections: branchConns,
+        source: { type: 'branch', name: branch.name, protected: branch.protected },
         provider: 'work',
       });
     }
