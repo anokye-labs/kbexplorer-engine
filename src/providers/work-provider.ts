@@ -49,19 +49,49 @@ export class WorkProvider implements GraphProvider {
     // Pull requests
     for (const pr of this.pullRequests) {
       const body = pr.body ?? '';
-      const html = marked.parse(body, { async: false }) as string;
+
+      // Remap GitHub links to graph node links
+      const remappedBody = body
+        .replace(/https?:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)/g, (_m: string, num: string) => `issue-${num}`)
+        .replace(/https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/g, (_m: string, num: string) => `pr-${num}`)
+
       const refs = extractIssueRefs(body);
+
+      // Rich metadata header
+      const stateEmoji = pr.state === 'open' ? '🟢' : pr.state === 'merged' ? '🟣' : '🔴';
+      const labelBadges = pr.labels?.map(l => `\`${l.name}\``).join(' ') ?? '';
+      const created = new Date(pr.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const updated = new Date(pr.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      const metaLines = [
+        `${stateEmoji} **${(pr.state || 'closed').toUpperCase()}** · PR #${pr.number}`,
+        labelBadges ? `Labels: ${labelBadges}` : '',
+        `Created: ${created} · Updated: ${updated}`,
+        `[View on GitHub ↗](${pr.html_url})`,
+      ].filter(Boolean).join('\n\n');
+
+      const fullContent = `${metaLines}\n\n---\n\n${remappedBody}`;
+      const html = marked.parse(fullContent, { async: false }) as string;
+
+      // Build connections
+      const connections: Array<{ to: string; description: string }> = [];
+      const seen = new Set<string>();
+      for (const n of refs) {
+        const to = `issue-${n}`;
+        if (!seen.has(to)) {
+          connections.push({ to, description: `References #${n}` });
+          seen.add(to);
+        }
+      }
+
       const prNode: KBNode = {
         id: `pr-${pr.number}`,
         title: pr.title,
         cluster: 'pull-request',
         content: html,
-        rawContent: body,
+        rawContent: fullContent,
         emoji: 'BranchFork',
-        connections: refs.map(n => ({
-          to: `issue-${n}`,
-          description: `References #${n}`,
-        })),
+        connections,
         source: { type: 'pull_request', number: pr.number, state: pr.state },
         provider: 'work',
       };
@@ -73,9 +103,29 @@ export class WorkProvider implements GraphProvider {
     if (this.commits.length > 0) {
       const commitList = this.commits
         .slice(0, 30)
-        .map(c => `- \`${c.sha.substring(0, 7)}\` ${c.commit.message}`)
+        .map(c => {
+          const msg = c.commit.message.split('\n')[0];
+          const date = new Date(c.commit.author.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const refs = extractIssueRefs(c.commit.message);
+          const refLinks = refs.map(n => `[#${n}](issue-${n})`).join(' ');
+          return `- \`${c.sha.substring(0, 7)}\` ${msg}${refLinks ? ' — ' + refLinks : ''} *(${date})*`;
+        })
         .join('\n');
-      const commitContent = `## Recent Commits\n\n${this.commits.length} commits\n\n${commitList}`;
+
+      // Extract issue refs from all commit messages for connections
+      const commitConnections: Array<{ to: string; description: string }> = [];
+      const seenRefs = new Set<string>();
+      for (const c of this.commits) {
+        for (const n of extractIssueRefs(c.commit.message)) {
+          const to = `issue-${n}`;
+          if (!seenRefs.has(to)) {
+            commitConnections.push({ to, description: `Commit references #${n}` });
+            seenRefs.add(to);
+          }
+        }
+      }
+
+      const commitContent = `## Recent Commits\n\n${this.commits.length} commits · ${this.commits[0]?.commit.author.name ?? 'unknown'}\n\n${commitList}`;
       const commitHtml = marked.parse(commitContent, { async: false }) as string;
       nodes.push({
         id: 'commits',
@@ -84,7 +134,7 @@ export class WorkProvider implements GraphProvider {
         content: commitHtml,
         rawContent: commitContent,
         emoji: 'History',
-        connections: [],
+        connections: commitConnections,
         source: { type: 'commit', sha: 'summary' },
         provider: 'work',
       });
