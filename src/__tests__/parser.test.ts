@@ -107,7 +107,8 @@ describe('issueToNode', () => {
 
   it('handles null body', () => {
     const node = issueToNode({ ...mockIssue, body: null });
-    expect(node.rawContent).toBe('');
+    expect(node.rawContent).toContain('OPEN');
+    expect(node.rawContent).toContain('View on GitHub');
     expect(node.connections).toEqual([]);
   });
 

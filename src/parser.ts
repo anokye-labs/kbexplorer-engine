@@ -168,22 +168,63 @@ export function issueToNode(issue: GHIssue): KBNode {
   const labels = issue.labels.map(l => l.name);
   const cluster = labels[0]?.toLowerCase() ?? 'uncategorized';
   const body = issue.body ?? '';
-  const html = marked.parse(body, { async: false }) as string;
+
+  // Remap GitHub issue/PR links to graph node links
+  const remappedBody = body
+    .replace(/https?:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)/g, (_m, num) => `issue-${num}`)
+    .replace(/https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/g, (_m, num) => `pr-${num}`)
+
   const refs = extractIssueRefs(body);
+  // Also extract PR references from body
+  const prRefs = [...body.matchAll(/(?:^|\s)#(\d+)/g)].map(m => Number(m[1]));
+
+  // Build rich metadata header
+  const stateEmoji = issue.state === 'open' ? '🟢' : '🟣';
+  const labelBadges = labels.map(l => `\`${l}\``).join(' ');
+  const assigneeList = issue.assignees?.length
+    ? issue.assignees.map(a => `@${a.login}`).join(', ')
+    : '';
+  const created = new Date(issue.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const updated = new Date(issue.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const metaLines = [
+    `${stateEmoji} **${issue.state.toUpperCase()}** · #${issue.number}`,
+    labelBadges ? `Labels: ${labelBadges}` : '',
+    assigneeList ? `Assignees: ${assigneeList}` : '',
+    `Created: ${created} · Updated: ${updated}`,
+    `[View on GitHub ↗](${issue.html_url})`,
+  ].filter(Boolean).join('\n\n');
+
+  const fullContent = `${metaLines}\n\n---\n\n${remappedBody}`;
+  const html = marked.parse(fullContent, { async: false }) as string;
+
+  // Build connections — both issue refs and PR refs
+  const connections: Connection[] = [];
+  const seen = new Set<string>();
+  for (const n of refs) {
+    const to = `issue-${n}`;
+    if (!seen.has(to)) {
+      connections.push({ to, type: 'cross_references', description: `References #${n}`, source: 'inline' });
+      seen.add(to);
+    }
+  }
+  for (const n of prRefs) {
+    const prTo = `pr-${n}`;
+    if (!seen.has(prTo) && !seen.has(`issue-${n}`)) {
+      // Could be a PR reference — add both possibilities
+      connections.push({ to: `issue-${n}`, type: 'cross_references', description: `References #${n}`, source: 'inline' });
+      seen.add(`issue-${n}`);
+    }
+  }
 
   const node: KBNode = {
     id: `issue-${issue.number}`,
     title: issue.title,
     cluster,
     content: html,
-    rawContent: body,
+    rawContent: fullContent,
     emoji: issueIcon(labels),
-    connections: refs.map(n => ({
-      to: `issue-${n}`,
-      type: 'cross_references' as const,
-      description: `References #${n}`,
-      source: 'inline' as const,
-    })),
+    connections,
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
   };
   node.identity = assignIdentity(node);
