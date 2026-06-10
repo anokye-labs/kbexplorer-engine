@@ -1,4 +1,4 @@
-import type { KBNode, KBEdge, KBConfig, Connection } from '../types';
+import type { KBNode, KBEdge, KBConfig } from '../types';
 
 /** Result produced by a single provider run */
 export interface ProviderResult {

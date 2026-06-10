@@ -14,11 +14,19 @@ export class FilesProvider implements GraphProvider {
   name = 'File System';
   dependencies: string[] = [];
 
+  private treeItems: GHTreeItem[];
+  private repoName: string;
+  private excludePaths?: string[];
+
   constructor(
-    private treeItems: GHTreeItem[],
-    private repoName: string,
-    private excludePaths?: string[],
-  ) {}
+    treeItems: GHTreeItem[],
+    repoName: string,
+    excludePaths?: string[],
+  ) {
+    this.treeItems = treeItems;
+    this.repoName = repoName;
+    this.excludePaths = excludePaths;
+  }
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
     const nodes = treeToNodes(this.treeItems, this.repoName, this.excludePaths);

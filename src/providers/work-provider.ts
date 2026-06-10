@@ -11,44 +11,62 @@ import { issueToNode, extractIssueRefs } from '../parser';
 import { assignIdentity } from '../identity';
 import type { GHIssue } from '../../api';
 
+type WorkPullRequest = {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  labels: Array<{ name: string; color: string }>;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  head_branch?: string;
+};
+
+type WorkCommit = {
+  sha: string;
+  commit: { message: string; author: { name: string; date: string } };
+  html_url: string;
+};
+
+type WorkRepoMetadata = {
+  name: string;
+  description: string;
+  html_url: string;
+  default_branch: string;
+  stargazers_count: number;
+  forks_count: number;
+  private: boolean;
+  topics: string[];
+  primary_language: string;
+  languages: Array<{ name: string; size: number }>;
+  owner: { login: string; avatar_url: string };
+};
+
 export class WorkProvider implements GraphProvider {
   id = 'work';
   name = 'Work Items';
   dependencies: string[] = [];
 
+  private issues: GHIssue[];
+  private pullRequests: WorkPullRequest[];
+  private commits: WorkCommit[];
+  private branches: Array<{ name: string; protected: boolean }>;
+  private repoMetadata: WorkRepoMetadata | null;
+
   constructor(
-    private issues: GHIssue[],
-    private pullRequests: Array<{
-      number: number;
-      title: string;
-      body: string;
-      state: string;
-      labels: Array<{ name: string; color: string }>;
-      html_url: string;
-      created_at: string;
-      updated_at: string;
-      head_branch?: string;
-    }>,
-    private commits: Array<{
-      sha: string;
-      commit: { message: string; author: { name: string; date: string } };
-      html_url: string;
-    }>,
-    private branches: Array<{ name: string; protected: boolean }> = [],
-    private repoMetadata: {
-      name: string;
-      description: string;
-      html_url: string;
-      default_branch: string;
-      stargazers_count: number;
-      forks_count: number;
-      private: boolean;
-      topics: string[];
-      primary_language: string;
-      languages: Array<{ name: string; size: number }>;
-      owner: { login: string; avatar_url: string };
-    } | null = null,
-  ) {}
+    issues: GHIssue[],
+    pullRequests: WorkPullRequest[],
+    commits: WorkCommit[],
+    branches: Array<{ name: string; protected: boolean }> = [],
+    repoMetadata: WorkRepoMetadata | null = null,
+  ) {
+    this.issues = issues;
+    this.pullRequests = pullRequests;
+    this.commits = commits;
+    this.branches = branches;
+    this.repoMetadata = repoMetadata;
+  }
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
     const nodes: KBNode[] = [];
@@ -192,7 +210,7 @@ export class WorkProvider implements GraphProvider {
         content: repoHtml,
         rawContent: repoContent,
         emoji: 'Organization',
-        display: 'repository' as any,
+        display: 'repository',
         image: meta.owner.avatar_url || undefined,
         connections: repoConns,
         source: { type: 'repository', owner: meta.owner.login, repo: meta.name },

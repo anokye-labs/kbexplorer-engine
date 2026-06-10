@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { WikipediaProvider } from '../../providers/wikipedia-provider'
 import { OrgChartProvider } from '../../providers/orgchart-provider'
 import { loadExternalProviders } from '../../plugin-loader'
-import type { ExternalProviderConfig, KBConfig } from '../../../types'
+import type { ExternalProviderConfig } from '../../../types'
 import { DEFAULT_CONFIG } from '../../../types'
 
 // ── WikipediaProvider ──────────────────────────────────────

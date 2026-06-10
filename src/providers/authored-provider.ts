@@ -13,13 +13,25 @@ export class AuthoredProvider implements GraphProvider {
   name = 'Authored Content';
   dependencies: string[] = [];
 
+  private authoredContent: Record<string, string>;
+  private nodemapRaw?: string | null;
+  private nodemapFiles?: Record<string, string>;
+  private nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>>;
+  private listFiles?: (pattern: string) => Promise<string[]>;
+
   constructor(
-    private authoredContent: Record<string, string>,
-    private nodemapRaw?: string | null,
-    private nodemapFiles?: Record<string, string>,
-    private nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>>,
-    private listFiles?: (pattern: string) => Promise<string[]>,
-  ) {}
+    authoredContent: Record<string, string>,
+    nodemapRaw?: string | null,
+    nodemapFiles?: Record<string, string>,
+    nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>>,
+    listFiles?: (pattern: string) => Promise<string[]>,
+  ) {
+    this.authoredContent = authoredContent;
+    this.nodemapRaw = nodemapRaw;
+    this.nodemapFiles = nodemapFiles;
+    this.nodemapDirs = nodemapDirs;
+    this.listFiles = listFiles;
+  }
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
     const nodes: KBNode[] = [];
