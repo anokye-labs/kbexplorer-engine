@@ -12,7 +12,6 @@ import type {
   NodeMapEntry,
   NodeMap,
   KBNode,
-  Connection,
   DisplayMode,
   NodeSource,
 } from '../types';
