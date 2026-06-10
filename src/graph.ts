@@ -3,7 +3,7 @@
  * Builds edges, clusters, related nodes, and layout positions.
  */
 import type { KBNode, KBGraph, KBEdge, Cluster, EdgeType } from '../types';
-import { EDGE_TYPE_WEIGHTS } from '../types';
+import { EDGE_TYPE_WEIGHTS, getEdgeWeight } from '../types';
 
 /** Build the full knowledge graph from a list of nodes and cluster definitions. */
 export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
@@ -62,7 +62,8 @@ function buildEdges(
             type: edgeType,
             description: conn.description,
             source: conn.source ?? 'frontmatter',
-            weight: conn.weight ?? EDGE_TYPE_WEIGHTS[edgeType] ?? 1,
+            weight: conn.weight ?? getEdgeWeight(edgeType),
+            ...(conn.relation ? { relation: conn.relation } : {}),
           });
         }
       }
