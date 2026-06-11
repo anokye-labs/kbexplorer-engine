@@ -1,0 +1,5 @@
+"@type": workstream
+id: personalization-discovery
+name: Personalization Discovery
+priority: p0-latency
+summary: Discover and rank personalized content for players.

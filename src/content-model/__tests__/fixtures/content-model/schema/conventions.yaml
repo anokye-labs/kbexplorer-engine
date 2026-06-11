@@ -1,0 +1,29 @@
+# conventions.yaml — per-kind storage + mapping.
+# `kind` always comes from the entity's `@type`, never from the path below;
+# the path is used only to discover files and to detect org (flat vs nested).
+typeField: "@type"
+idField: id
+kinds:
+  org:
+    path: orgs
+    orgScoped: false
+  person:
+    path: people
+    orgScoped: false
+    aliasField: alias
+  squad:
+    path: squads
+    orgScoped: true
+    companionExt: .md
+  workstream:
+    path: workstreams
+    orgScoped: true
+  mission:
+    path: missions
+    orgScoped: true
+  priority:
+    path: priorities
+    orgScoped: false
+  cycle:
+    path: cycles
+    orgScoped: false

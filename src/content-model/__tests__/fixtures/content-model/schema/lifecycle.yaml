@@ -1,0 +1,12 @@
+# lifecycle.yaml — bands group kinds by how often they change.
+bands:
+  durable:
+    - org
+    - person
+    - squad
+    - workstream
+  per-cycle:
+    - mission
+    - cycle
+    - priority
+  per-event: []

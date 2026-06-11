@@ -1,0 +1,70 @@
+# edges.yaml — relationships resolved into the six-relation taxonomy.
+edges:
+  # alias FK → Person (squad.dri references a person by their alias handle)
+  - id: squad-dri
+    from: squad
+    field: dri
+    to: person
+    fk: alias
+    relation: leads
+    description: DRI leads the squad
+  # array FK → Person (squad.members is a list of person ids)
+  - id: squad-members
+    from: squad
+    field: members
+    to: person
+    fk: array
+    relation: staffs
+    description: Squad staffs member
+  # scalar FK → Workstream
+  - id: squad-workstream
+    from: squad
+    field: workstream
+    to: workstream
+    fk: scalar
+    relation: structural
+    description: Squad delivers workstream
+  # scalar FK → Priority
+  - id: workstream-priority
+    from: workstream
+    field: priority
+    to: priority
+    fk: scalar
+    relation: structural
+    description: Workstream aligned to priority
+  # scalar FK → Person (may be unresolved → stub node)
+  - id: person-manager
+    from: person
+    field: manager
+    to: person
+    fk: scalar
+    relation: reports-to
+    description: Reports to
+  # composite FK "<cycle>:<squad>" → two edges
+  - id: mission-assignment
+    from: mission
+    field: assignment
+    fk: composite
+    relation: structural
+    composite:
+      - to: cycle
+        relation: structural
+      - to: squad
+        relation: structural
+
+derived:
+  # squads that deliver the same workstream are aligned (computed, not stored)
+  - id: squad-coalignment
+    type: shared-target
+    via: squad-workstream
+    relation: derived
+    description: Aligned via shared workstream
+
+deprecated:
+  # legacy ownership — resolved but tagged `deprecated`
+  - id: squad-legacy-owner
+    from: squad
+    field: legacyOwner
+    to: person
+    fk: alias
+    relation: deprecated

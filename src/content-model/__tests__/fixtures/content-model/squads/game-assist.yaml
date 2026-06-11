@@ -1,0 +1,13 @@
+"@type": squad
+id: game-assist
+name: Game Assist
+mission: Help players succeed in-game
+dri: aokonkwo
+members:
+  - ada
+  - ben
+workstream: personalization-discovery
+legacyOwner: bcarter
+knowledgeAreas:
+  - ML
+  - accessibility
