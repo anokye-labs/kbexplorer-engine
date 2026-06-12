@@ -66,6 +66,71 @@ Content here.`;
     expect(node.cluster).toBe('default');
     expect(node.rawContent).toContain('# No Frontmatter');
   });
+
+  it('parses per-page accent/tokens/theme frontmatter into node.pageTheme', () => {
+    const raw = `---
+id: themed
+title: Themed Node
+cluster: misc
+accent: "#C04040"
+theme: midnight
+tokens:
+  colorNeutralBackground1: "#101418"
+  borderRadiusMedium: "8px"
+---
+
+Body.`;
+
+    const node = parseMarkdownFile('content/themed.md', raw);
+    expect(node.pageTheme).toEqual({
+      accent: '#C04040',
+      theme: 'midnight',
+      tokens: {
+        colorNeutralBackground1: '#101418',
+        borderRadiusMedium: '8px',
+      },
+    });
+  });
+
+  it('parses a partial per-page theme (accent only)', () => {
+    const raw = `---
+id: accent-only
+title: Accent Only
+cluster: misc
+accent: "#2E86AB"
+---
+
+Body.`;
+    const node = parseMarkdownFile('content/accent-only.md', raw);
+    expect(node.pageTheme).toEqual({ accent: '#2E86AB' });
+  });
+
+  it('leaves pageTheme undefined when no theming fields are present', () => {
+    const raw = `---
+id: plain-node
+title: Plain Node
+cluster: misc
+---
+
+Body.`;
+    const node = parseMarkdownFile('content/plain-node.md', raw);
+    expect(node.pageTheme).toBeUndefined();
+  });
+
+  it('ignores non-string token values and empty token maps in pageTheme', () => {
+    const raw = `---
+id: messy
+title: Messy
+cluster: misc
+tokens:
+  colorNeutralBackground1: "#222"
+  bad: 42
+---
+
+Body.`;
+    const node = parseMarkdownFile('content/messy.md', raw);
+    expect(node.pageTheme).toEqual({ tokens: { colorNeutralBackground1: '#222' } });
+  });
 });
 
 // ── issueToNode ────────────────────────────────────────────

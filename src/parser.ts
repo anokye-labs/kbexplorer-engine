@@ -38,6 +38,29 @@ interface AuthoredFrontmatter {
   derived?: boolean;
   display?: import('../types').DisplayMode;
   connections?: Array<{ to: string; description: string }>;
+  accent?: string;
+  tokens?: Partial<Record<string, string>>;
+  theme?: string;
+}
+
+/**
+ * Build a node's optional per-page theme from its frontmatter. Returns
+ * `undefined` when no `accent`/`tokens`/`theme` field is present (or none is a
+ * usable value), so unthemed nodes carry no `pageTheme` and behave exactly as
+ * before. Values are normalized defensively since frontmatter is untrusted.
+ */
+function buildPageTheme(fm: Partial<AuthoredFrontmatter>): import('../types').PageTheme | undefined {
+  const page: import('../types').PageTheme = {};
+  if (typeof fm.accent === 'string' && fm.accent.trim()) page.accent = fm.accent.trim();
+  if (typeof fm.theme === 'string' && fm.theme.trim()) page.theme = fm.theme.trim();
+  if (fm.tokens && typeof fm.tokens === 'object' && !Array.isArray(fm.tokens)) {
+    const tokens: Record<string, string> = {};
+    for (const [k, v] of Object.entries(fm.tokens)) {
+      if (typeof v === 'string') tokens[k] = v;
+    }
+    if (Object.keys(tokens).length > 0) page.tokens = tokens;
+  }
+  return page.accent || page.theme || page.tokens ? page : undefined;
 }
 
 /** Parse YAML frontmatter from a markdown string (no Buffer dependency). */
@@ -108,6 +131,8 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     connections,
     source: { type: 'authored', file: path },
   };
+  const pageTheme = buildPageTheme(fm);
+  if (pageTheme) node.pageTheme = pageTheme;
   node.identity = assignIdentity(node);
   return node;
 }
