@@ -15,6 +15,7 @@ export {
   readContentModelSchema,
   buildUrn,
   resolveCurie,
+  canonicalKind,
   lifecycleBand,
   getConvention,
   isOrgScoped,

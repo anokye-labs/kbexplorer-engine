@@ -31,10 +31,12 @@ import type {
   ContentModelSource,
   Diagnostic,
   EdgeRule,
+  VocabularyOverlay,
 } from './types';
 import {
   SCHEMA_PATHS,
   buildUrn,
+  canonicalKind,
   getConvention,
   hasContentModelSource,
   lifecycleBand,
@@ -60,6 +62,13 @@ interface EntityEntry {
   org?: string;
   urn: string;
   record: EntityRecord;
+  /**
+   * The repo's native term when it differs from {@link EntityEntry.kind} — i.e.
+   * a cross-repo alias (`cell`) was canonicalized to a kind (`squad`). Preserved
+   * for display so a repo never loses the word it actually used. Undefined when
+   * the declared `@type` is already canonical.
+   */
+  nativeType?: string;
   /** Companion markdown body (e.g. a sibling `.md`), when the kind declares one. */
   body?: string;
 }
@@ -139,11 +148,16 @@ function walkEntities(schema: ContentModelSchema, source: ContentModelSource, di
       diagnostics.push({ level: 'warn', code: 'unparsable-entity', message: `Could not parse entity file`, ref: path });
       continue;
     }
-    const kind = record[typeField] != null ? String(record[typeField]) : '';
-    if (!kind) {
+    const declaredType = record[typeField] != null ? String(record[typeField]) : '';
+    if (!declaredType) {
       diagnostics.push({ level: 'warn', code: 'missing-type', message: `Entity has no ${typeField}`, ref: path });
       continue;
     }
+    // Cross-repo synonym layer (#153): canonicalize a per-repo alias term
+    // (e.g. `cell`) to the kind it stands in for (e.g. `squad`) so it gets the
+    // canonical kind + viewer. A no-op when no vocabulary is declared.
+    const kind = canonicalKind(schema, declaredType);
+    const nativeType = kind !== declaredType ? declaredType : undefined;
     const convention = getConvention(schema, kind);
     if (!convention) {
       diagnostics.push({ level: 'warn', code: 'unknown-kind', message: `No convention for kind "${kind}"`, ref: path });
@@ -164,6 +178,7 @@ function walkEntities(schema: ContentModelSchema, source: ContentModelSource, di
       org,
       urn,
       record,
+      nativeType,
       body: companionBody(source.files, path, convention.companionExt),
     };
     entries.push(entry);
@@ -187,13 +202,19 @@ function ldContextOf(schema: ContentModelSchema): JsonLd['@context'] {
 }
 
 function emitNode(schema: ContentModelSchema, entry: EntityEntry, ldContext: JsonLd['@context']): KBNode {
-  const { kind, id, urn, record, body } = entry;
+  const { kind, id, urn, record, body, nativeType } = entry;
   const title = String(record.name ?? record.title ?? id);
-  // `data` is the verbatim record — the field → node mapping is reversible.
+  // `data` is the verbatim record — the field → node mapping is reversible, and
+  // because `@type` is copied verbatim the repo's native term survives in `data`.
   const data: EntityRecord = { ...record };
   const band = lifecycleBand(schema, kind);
-  // Surface the lifecycle band in the LD envelope without polluting `data`.
-  const ldData = band ? { ...data, lifecycle: band } : data;
+  // Surface the lifecycle band (and the native vocabulary term, when this node
+  // was canonicalized from a cross-repo alias) in the LD envelope without
+  // polluting `data`. `nativeType` is only added for aliased nodes, so non-alias
+  // output stays byte-identical.
+  const ldData: EntityRecord = { ...data };
+  if (band) ldData.lifecycle = band;
+  if (nativeType) ldData.nativeType = nativeType;
   const content = body ? (marked.parse(body, { async: false }) as string) : '';
   return {
     id: urn,
@@ -400,13 +421,21 @@ class EdgeResolver {
 /**
  * Build the content-model graph from a source. Returns empty results (a safe
  * no-op) when no content-model source is present.
+ *
+ * An optional cross-repo {@link VocabularyOverlay} (#153) — a shared synonym
+ * layer supplied independently of any single repo's context — is merged on top
+ * of the source's own `index/vocabulary.jsonld` so repos using different words
+ * for the same concept unify to one canonical kind.
  */
-export function buildContentModel(source: ContentModelSource | null | undefined): ContentModelGraph {
+export function buildContentModel(
+  source: ContentModelSource | null | undefined,
+  vocabularyOverlay?: VocabularyOverlay,
+): ContentModelGraph {
   if (!hasContentModelSource(source)) {
     return { nodes: [], edges: [], diagnostics: [] };
   }
   const src = source as ContentModelSource;
-  const { schema, diagnostics } = readContentModelSchema(src);
+  const { schema, diagnostics } = readContentModelSchema(src, vocabularyOverlay);
   const ldContext = ldContextOf(schema);
 
   // Pass 2: walk + index

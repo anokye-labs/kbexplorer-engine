@@ -130,6 +130,33 @@ export interface JsonLdContext {
   prefixes: Record<string, string>;
 }
 
+/**
+ * Cross-repo vocabulary / synonym layer (F-cross-repo — issue #153).
+ *
+ * Maps a per-repo **alias term** (a word one repo uses, e.g. `cell` / `crew`)
+ * to a **canonical term** — a kind / CURIE prefix already declared in the
+ * JSON-LD {@link JsonLdContext} (e.g. `squad`). It lets the graph unify concepts
+ * across repos that use different words while each repo keeps its native label.
+ *
+ * The map is **data-driven** (declared in `index/vocabulary.jsonld` and/or
+ * supplied as a shared overlay independent of any single repo's context) and is
+ * a **safe no-op** when empty — output is byte-identical to a build without it.
+ */
+export interface Vocabulary {
+  /**
+   * alias term → canonical term. A self-mapping (alias === canonical) is never
+   * stored, so an alias is always a *rename* to some other canonical kind.
+   */
+  aliases: Record<string, string>;
+}
+
+/**
+ * An overlay vocabulary supplied independently of a repo's own files — the
+ * cross-repo synonym layer. Either raw `vocabulary.jsonld` content (a string),
+ * an already-parsed {@link Vocabulary}, or nothing.
+ */
+export type VocabularyOverlay = string | Vocabulary | null | undefined;
+
 /** The fully-parsed content-model schema. */
 export interface ContentModelSchema {
   teamops: TeamOps;
@@ -137,6 +164,8 @@ export interface ContentModelSchema {
   edges: EdgesSpec;
   lifecycle: Lifecycle;
   context: JsonLdContext;
+  /** Cross-repo synonym layer; `aliases` is empty when none is declared. */
+  vocabulary: Vocabulary;
 }
 
 /** Severity of a build/schema diagnostic. */

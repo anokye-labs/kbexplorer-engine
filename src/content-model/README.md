@@ -21,6 +21,7 @@ produced by `readContentModel()` in `scripts/generate-manifest.js` (build time) 
 content-model/
   teamops.yaml            # identity: authority + default (home) org
   index/context.jsonld    # CURIE prefix → URN base (the ONLY source of URN bases)
+  index/vocabulary.jsonld # OPTIONAL cross-repo synonym layer — alias term → canonical kind (#153)
   schema/
     conventions.yaml      # per-kind: path, orgScoped, aliasField, companionExt
     edges.yaml            # FK / derived / deprecated edge rules
@@ -41,9 +42,53 @@ content-model/
 - `node.id === node.identity === <URN>`; `buildJsonLd()` writes the reserved keys
   (`@context`/`@id`/`@type`) last so entity `data` can never override them.
 
+## Cross-repo vocabulary / synonym layer (#153)
+
+Different repos use different words for the same concept — one calls a team a
+`squad`, another a `cell`, another a `crew`; one calls an iteration a `cycle`,
+another a `season`. This optional layer maps each repo's **alias term** to a
+**canonical kind** so the graph unifies them under one `@type` (and one viewer),
+**while every repo keeps its native label**.
+
+It is **data-driven** (never hardcoded), authored exactly like the rest of the
+JSON-LD context, and a **strictly additive safe no-op**: with no vocabulary
+declared, graph output is byte-identical to before.
+
+**Two ways to declare aliases**, merged together (overlay wins on collision):
+
+1. **Per-repo file** — `index/vocabulary.jsonld`, a JSON-LD `@context` whose
+   entries alias a term to a canonical kind/CURIE prefix already in
+   `context.jsonld`. Values are a bare string or `{ "@id": … }`, mirroring how
+   prefixes are authored:
+
+   ```jsonc
+   { "@context": { "cell": "squad", "crew": { "@id": "squad" }, "season": "cycle" } }
+   ```
+
+2. **Shared overlay** — a vocabulary supplied *independently of any single repo's
+   files* (the cross-repo layer). `readContentModelSchema(source, overlay)`,
+   `buildContentModel(source, overlay)` and `new ContentModelProvider(source,
+   overlay)` all accept it as either raw `vocabulary.jsonld` text (a string) or a
+   parsed `{ aliases }` `Vocabulary`. Its terms override the per-repo file.
+
+**Resolution** (`canonicalKind(schema, term)` = `aliases[term] ?? term`) happens
+in the builder's *walk* pass, **before** convention / URN / cluster / entityType
+resolution — so an alias like `cell` (which has no convention or CURIE prefix of
+its own) resolves to `squad` and gets the squad convention, URN base, cluster and
+the bespoke `SquadView`. Resolution is a single hop (a canonical target is itself
+a real kind, not another alias); self-mappings and JSON-LD keywords are ignored.
+
+**Native label preserved.** The entity's `data` stays the verbatim parsed record,
+so `data['@type']` keeps the native term (`cell`). Additionally the builder
+surfaces it on the JSON-LD envelope as `jsonld.nativeType` — and *only* for
+aliased nodes, so non-aliased output stays byte-identical. Spine viewers read it
+via `nativeTypeOf(node)` and show a small "native: …" badge next to the canonical
+type.
+
 ## The five passes (`builder.ts`)
 
-1. **Schema** — `readContentModelSchema()` parses the five schema files.
+1. **Schema** — `readContentModelSchema()` parses the five schema files (plus the
+   optional `index/vocabulary.jsonld` synonym layer and any shared overlay).
 2. **Walk + index** — discover entity files, parse them, detect org layout, and
    build a `(kind, org, id)` index plus an alias index for alias-FK resolution.
 3. **Emit nodes** — one JSON-LD `KBNode` per entity (`display: 'entity'`,

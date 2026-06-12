@@ -11,7 +11,7 @@
  */
 import type { GraphProvider, ProviderResult } from '../providers';
 import type { KBConfig, KBNode } from '../../types';
-import type { ContentModelSource } from '../content-model';
+import type { ContentModelSource, VocabularyOverlay } from '../content-model';
 import {
   CONTENT_MODEL_PROVIDER,
   buildContentModel,
@@ -25,9 +25,16 @@ export class ContentModelProvider implements GraphProvider {
   dependencies: string[] = [];
 
   private source: ContentModelSource | null;
+  /**
+   * Optional cross-repo synonym overlay (#153) supplied independently of the
+   * source's own files — the shared vocabulary layer. Null/absent leaves the
+   * synonym layer a safe no-op.
+   */
+  private vocabularyOverlay: VocabularyOverlay;
 
-  constructor(source: ContentModelSource | null | undefined) {
+  constructor(source: ContentModelSource | null | undefined, vocabularyOverlay?: VocabularyOverlay) {
     this.source = source ?? null;
+    this.vocabularyOverlay = vocabularyOverlay ?? null;
   }
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
@@ -36,7 +43,7 @@ export class ContentModelProvider implements GraphProvider {
     }
     // Register the spine node types + bespoke viewers before emitting nodes.
     registerContentModelTypes();
-    const { nodes } = buildContentModel(this.source);
+    const { nodes } = buildContentModel(this.source, this.vocabularyOverlay);
     // Edges are carried as node connections; the orchestrator ignores `edges`.
     return { nodes, edges: [] };
   }
