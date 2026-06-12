@@ -70,6 +70,17 @@ describe('content-model builder — node emission (T2.2 / #161)', () => {
     expect(game.rawContent).toContain('Game Assist owns');
     expect(game.content).toContain('<');
   });
+
+  it('attaches the underlying source-of-truth file (path + raw + format) for PR write-back (F5 / #152)', () => {
+    const ada = node(ADA);
+    expect(ada.sourceFile).toEqual({
+      path: 'content-model/people/ada.yaml',
+      raw: source.files['people/ada.yaml'],
+      format: 'yaml',
+    });
+    // unresolved stubs have no file to edit
+    expect(node(CTO).sourceFile).toBeUndefined();
+  });
 });
 
 describe('content-model builder — org detection (T2.2 / #161)', () => {

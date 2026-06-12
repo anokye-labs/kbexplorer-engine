@@ -71,6 +71,10 @@ interface EntityEntry {
   nativeType?: string;
   /** Companion markdown body (e.g. a sibling `.md`), when the kind declares one. */
   body?: string;
+  /** Path of the entity file relative to the content-model root (e.g. `people/ada.yaml`). */
+  path: string;
+  /** Verbatim text of the entity file — the editable source of truth (F5 — #152). */
+  raw: string;
 }
 
 const NUL = '\u0000';
@@ -88,6 +92,17 @@ function isSchemaPath(path: string): boolean {
 }
 
 const YAML_RE = /\.ya?ml$/i;
+
+/** Join a content-model root with an entity path into a single repo-relative path. */
+function joinPath(root: string, path: string): string {
+  const trimmedRoot = root.replace(/\/+$/, '');
+  return trimmedRoot ? `${trimmedRoot}/${path}` : path;
+}
+
+/** Parser format for an entity file, inferred from its extension (defaults to YAML). */
+function sourceFormat(path: string): 'yaml' | 'json' {
+  return /\.json$/i.test(path) ? 'json' : 'yaml';
+}
 
 function parseYaml(raw: string): EntityRecord | null {
   try {
@@ -180,6 +195,8 @@ function walkEntities(schema: ContentModelSchema, source: ContentModelSource, di
       record,
       nativeType,
       body: companionBody(source.files, path, convention.companionExt),
+      path,
+      raw,
     };
     entries.push(entry);
     byKindId.set(key(kind, id), entry);
@@ -201,7 +218,12 @@ function ldContextOf(schema: ContentModelSchema): JsonLd['@context'] {
   return Object.keys(ctx).length > 0 ? ctx : 'https://schema.org';
 }
 
-function emitNode(schema: ContentModelSchema, entry: EntityEntry, ldContext: JsonLd['@context']): KBNode {
+function emitNode(
+  schema: ContentModelSchema,
+  entry: EntityEntry,
+  ldContext: JsonLd['@context'],
+  root: string,
+): KBNode {
   const { kind, id, urn, record, body, nativeType } = entry;
   const title = String(record.name ?? record.title ?? id);
   // `data` is the verbatim record — the field → node mapping is reversible, and
@@ -231,6 +253,10 @@ function emitNode(schema: ContentModelSchema, entry: EntityEntry, ldContext: Jso
     provider: CONTENT_MODEL_PROVIDER,
     data,
     jsonld: buildJsonLd({ id: urn, identity: urn }, kind, ldData, ldContext),
+    // Pointer to the underlying source-of-truth file so the in-app editor can
+    // edit the real entity file and hand the change off to GitHub as a PR
+    // (F5 — #152). The path is repo-relative (root + entry path).
+    sourceFile: { path: joinPath(root, entry.path), raw: entry.raw, format: sourceFormat(entry.path) },
   };
 }
 
@@ -444,7 +470,7 @@ export function buildContentModel(
   // Pass 3: emit nodes
   const nodeByUrn = new Map<string, KBNode>();
   for (const entry of index.entries) {
-    nodeByUrn.set(entry.urn, emitNode(schema, entry, ldContext));
+    nodeByUrn.set(entry.urn, emitNode(schema, entry, ldContext, src.root));
   }
 
   // Passes 4 + 5: edges
