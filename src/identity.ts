@@ -14,6 +14,7 @@ export function assignIdentity(node: KBNode): string | undefined {
     case 'pull_request': return `urn:pr:${node.source.number}`;
     case 'commit':     return `urn:commit:${node.source.sha}`;
     case 'release':    return `urn:release:${node.source.tag}`;
+    case 'person':     return `urn:person:${node.source.login}`;
     case 'section':    return undefined;
     default:           return undefined;
   }
