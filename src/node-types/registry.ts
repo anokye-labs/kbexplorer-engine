@@ -65,6 +65,7 @@ const BUILT_IN_NODE_TYPES: NodeTypeDefinition[] = [
   { id: 'branch', layer: 'work', label: 'Branch' },
   { id: 'workflow', layer: 'work', label: 'Workflow' },
   { id: 'repository', layer: 'work', label: 'Repository' },
+  { id: 'release', layer: 'work', label: 'Release', cluster: 'releases', description: 'A GitHub release (tag, name, release notes).' },
   { id: 'file', layer: 'file', label: 'File' },
   { id: 'external', layer: 'file', label: 'External' },
 ];
