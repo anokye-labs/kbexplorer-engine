@@ -9,7 +9,7 @@ import type { GraphProvider, ProviderResult } from '../providers';
 import type { KBConfig, KBNode } from '../../types';
 import { issueToNode, extractIssueRefs } from '../parser';
 import { assignIdentity } from '../identity';
-import type { GHIssue } from '../../api';
+import type { GHIssue, GHRelease } from '../../api';
 
 type WorkPullRequest = {
   number: number;
@@ -53,6 +53,7 @@ export class WorkProvider implements GraphProvider {
   private commits: WorkCommit[];
   private branches: Array<{ name: string; protected: boolean }>;
   private repoMetadata: WorkRepoMetadata | null;
+  private releases: GHRelease[];
 
   constructor(
     issues: GHIssue[],
@@ -60,12 +61,14 @@ export class WorkProvider implements GraphProvider {
     commits: WorkCommit[],
     branches: Array<{ name: string; protected: boolean }> = [],
     repoMetadata: WorkRepoMetadata | null = null,
+    releases: GHRelease[] = [],
   ) {
     this.issues = issues;
     this.pullRequests = pullRequests;
     this.commits = commits;
     this.branches = branches;
     this.repoMetadata = repoMetadata;
+    this.releases = releases;
   }
 
   async resolve(_config: KBConfig, _existingNodes: KBNode[]): Promise<ProviderResult> {
@@ -242,6 +245,70 @@ export class WorkProvider implements GraphProvider {
         source: { type: 'branch', name: branch.name, protected: branch.protected },
         provider: 'work',
       });
+    }
+
+    // ── Release nodes ─────────────────────────────────────
+    for (const release of this.releases) {
+      const tag = release.tag_name;
+      const body = release.body ?? '';
+
+      // Build rich metadata header
+      const prereleaseBadge = release.prerelease ? '🔶 **PRE-RELEASE**' : '🟢 **RELEASE**';
+      const pubDate = release.published_at
+        ? new Date(release.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+
+      const metaLines = [
+        `${prereleaseBadge} · \`${tag}\``,
+        pubDate ? `Published: ${pubDate}` : '',
+        `[View on GitHub ↗](${release.html_url})`,
+      ].filter(Boolean).join('\n\n');
+
+      const fullContent = `${metaLines}\n\n---\n\n${body}`;
+      const html = marked.parse(fullContent, { async: false }) as string;
+
+      // Connections: release → repo node
+      const connections: Array<{ to: string; description: string; type?: string }> = [];
+      if (this.repoMetadata) {
+        connections.push({ to: 'repo-meta', description: 'Repository', type: 'contains' });
+      }
+
+      // Connections: release → referenced PRs/issues (#N in release notes)
+      const refs = extractIssueRefs(body);
+      const seenRefs = new Set<string>();
+      for (const n of refs) {
+        // Try PR first; also add issue — only one will resolve in the graph
+        const prTo = `pr-${n}`;
+        const issueTo = `issue-${n}`;
+        if (!seenRefs.has(prTo)) {
+          connections.push({ to: prTo, description: `Ships PR #${n}`, type: 'ships' });
+          seenRefs.add(prTo);
+        }
+        if (!seenRefs.has(issueTo)) {
+          connections.push({ to: issueTo, description: `Closes #${n}`, type: 'closes' });
+          seenRefs.add(issueTo);
+        }
+      }
+
+      const releaseNode: KBNode = {
+        id: `release-${tag}`,
+        title: release.name || tag,
+        cluster: 'releases',
+        content: html,
+        rawContent: fullContent,
+        emoji: release.prerelease ? 'Beaker' : 'Rocket',
+        connections,
+        source: { type: 'release', tag, prerelease: release.prerelease },
+        provider: 'work',
+        data: {
+          tag_name: tag,
+          html_url: release.html_url,
+          published_at: release.published_at,
+          prerelease: release.prerelease,
+        },
+      };
+      releaseNode.identity = assignIdentity(releaseNode);
+      nodes.push(releaseNode);
     }
 
     return { nodes, edges: [] };
