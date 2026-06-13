@@ -66,6 +66,8 @@ const BUILT_IN_NODE_TYPES: NodeTypeDefinition[] = [
   { id: 'workflow', layer: 'work', label: 'Workflow' },
   { id: 'repository', layer: 'work', label: 'Repository' },
   { id: 'release', layer: 'work', label: 'Release', cluster: 'releases', description: 'A GitHub release (tag, name, release notes).' },
+  // Person nodes derived from GitHub activity (#235)
+  { id: 'person', layer: 'work', label: 'Person', cluster: 'person', description: 'A person derived from GitHub activity or a content-model descriptor.' },
   { id: 'file', layer: 'file', label: 'File' },
   { id: 'external', layer: 'file', label: 'External' },
 ];

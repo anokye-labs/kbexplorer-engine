@@ -86,10 +86,18 @@ describe('node-type registry (T1.2/T1.5)', () => {
   });
 
   it('resetNodeTypeRegistry drops custom types but keeps built-ins', () => {
-    registerType({ id: 'person', layer: 'work' });
+    registerType({ id: 'custom-test-kind', layer: 'work' });
+    expect(hasType('custom-test-kind')).toBe(true);
+    resetNodeTypeRegistry();
+    expect(hasType('custom-test-kind')).toBe(false);
+    expect(hasType('file')).toBe(true);
+  });
+
+  it('"person" is a built-in type (registered on import, present after reset)', () => {
+    // person is registered as a built-in since #235 so it survives resetNodeTypeRegistry
     expect(hasType('person')).toBe(true);
     resetNodeTypeRegistry();
-    expect(hasType('person')).toBe(false);
-    expect(hasType('file')).toBe(true);
+    expect(hasType('person')).toBe(true);
+    expect(resolveType('person')?.layer).toBe('work');
   });
 });
