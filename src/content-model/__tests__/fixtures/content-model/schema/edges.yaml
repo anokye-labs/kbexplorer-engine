@@ -24,14 +24,14 @@ edges:
     fk: scalar
     relation: structural
     description: Squad delivers workstream
-  # scalar FK → Priority
+  # scalar FK → Priority (has-priority relation — #233)
   - id: workstream-priority
     from: workstream
     field: priority
     to: priority
     fk: scalar
-    relation: structural
-    description: Workstream aligned to priority
+    relation: has-priority
+    description: Workstream serves priority
   # scalar FK → Person (may be unresolved → stub node)
   - id: person-manager
     from: person
@@ -51,6 +51,49 @@ edges:
         relation: structural
       - to: squad
         relation: structural
+
+  # ── Work-graph descriptor edges (#233) ─────────────────────
+  # team.lead → person (alias FK → leads edge)
+  - id: team-lead
+    from: team
+    field: lead
+    to: person
+    fk: alias
+    relation: leads
+    description: Team is led by
+  # team.members → person[] (array FK → staffs edges)
+  - id: team-members
+    from: team
+    field: members
+    to: person
+    fk: array
+    relation: staffs
+    description: Team staffs member
+  # team.workstreams → workstream[] (array FK → owns edges)
+  - id: team-workstreams
+    from: team
+    field: workstreams
+    to: workstream
+    fk: array
+    relation: owns
+    description: Team owns workstream
+  # workstream.team → team (scalar FK → structural back-edge)
+  - id: workstream-team
+    from: workstream
+    field: team
+    to: team
+    fk: scalar
+    relation: structural
+    description: Workstream belongs to team
+  # workstream.systems-of-record → system-of-record[] (array FK → tracked-in edges)
+  - id: workstream-sor
+    from: workstream
+    field: systems-of-record
+    to: system-of-record
+    fk: array
+    relation: tracked-in
+    description: Workstream tracked in system of record
+  # person.manager → person (already covered by person-manager above; omitted to avoid duplicate)
 
 derived:
   # squads that deliver the same workstream are aligned (computed, not stored)

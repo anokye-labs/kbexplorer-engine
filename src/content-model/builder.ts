@@ -84,6 +84,22 @@ function humanize(s: string): string {
   return s.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/**
+ * Coerce an FK value to its reference string. Scalars stringify; object
+ * entries (e.g. inline `{ id, name, url }` systems-of-record) resolve via
+ * their string `id`. Objects without a string id return null — the caller
+ * diagnoses rather than producing a "[object Object]" stub.
+ */
+function refOf(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === 'object') {
+    const id = (v as Record<string, unknown>).id;
+    return typeof id === 'string' && id.trim() ? id.trim() : null;
+  }
+  const s = String(v).trim();
+  return s || null;
+}
+
 /** Schema/index files that are never treated as entities. */
 function isSchemaPath(path: string): boolean {
   if (path === SCHEMA_PATHS.teamops) return true;
@@ -381,7 +397,17 @@ class EdgeResolver {
       : [raw];
     for (const v of values) {
       if (v == null) continue;
-      const to = this.resolve(rule.to ?? '', String(v).trim(), mode);
+      const ref = refOf(v);
+      if (ref == null) {
+        this.diagnostics.push({
+          level: 'warn',
+          code: 'bad-ref-shape',
+          message: `FK "${rule.id}" entry is an object without a string "id" — expected an id string (or { id: ... })`,
+          ref: entry.urn,
+        });
+        continue;
+      }
+      const to = this.resolve(rule.to ?? '', ref, mode);
       this.addEdge(entry.urn, to, relation, rule.description ?? humanize(relation));
     }
   }
@@ -425,7 +451,9 @@ class EdgeResolver {
         if (raw == null) continue;
         const refs = via.fk === 'array' ? (Array.isArray(raw) ? raw : [raw]) : [raw];
         for (const r of refs) {
-          const targetUrn = this.lookup(via.to, String(r).trim(), mode);
+          const ref = refOf(r);
+          if (ref == null) continue;
+          const targetUrn = this.lookup(via.to, ref, mode);
           if (!targetUrn) continue;
           (groups.get(targetUrn) ?? groups.set(targetUrn, []).get(targetUrn)!).push(entry.urn);
         }

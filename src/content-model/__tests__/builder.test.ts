@@ -99,7 +99,7 @@ describe('content-model builder — org detection (T2.2 / #161)', () => {
 
 describe('content-model builder — FK edge resolution (T2.3 / #162)', () => {
   it('resolves a scalar FK (workstream → priority)', () => {
-    expect(hasEdge(WS, PRIO, 'structural')).toBe(true);
+    expect(hasEdge(WS, PRIO, 'has-priority')).toBe(true);
   });
 
   it('resolves an array FK (squad → each member person)', () => {

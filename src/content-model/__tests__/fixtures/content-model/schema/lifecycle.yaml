@@ -5,6 +5,9 @@ bands:
     - person
     - squad
     - workstream
+    # Work-graph descriptor kinds (#233) — durable organizational layer
+    - team
+    - system-of-record
   per-cycle:
     - mission
     - cycle

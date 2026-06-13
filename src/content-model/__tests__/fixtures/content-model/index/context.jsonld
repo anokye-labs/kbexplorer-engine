@@ -7,6 +7,8 @@
     "workstream": "kg://xbox.com/workstreams/",
     "mission": "kg://xbox.com/missions/",
     "priority": "kg://xbox.com/priorities/",
-    "cycle": "kg://xbox.com/cycles/"
+    "cycle": "kg://xbox.com/cycles/",
+    "team": "kg://xbox.com/teams/",
+    "system-of-record": "kg://xbox.com/systems-of-record/"
   }
 }

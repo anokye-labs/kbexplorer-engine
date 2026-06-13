@@ -2,4 +2,7 @@
 id: personalization-discovery
 name: Personalization Discovery
 priority: p0-latency
+team: graph-platform
+systems-of-record:
+  - gh-issues
 summary: Discover and rank personalized content for players.

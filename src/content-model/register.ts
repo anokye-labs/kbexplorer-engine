@@ -18,6 +18,8 @@ import { MissionView } from '../../views/viewers/MissionView';
 import { PriorityView } from '../../views/viewers/PriorityView';
 import { CycleView } from '../../views/viewers/CycleView';
 import { OrgView } from '../../views/viewers/OrgView';
+import { TeamView } from '../../views/viewers/TeamView';
+import { SystemOfRecordView } from '../../views/viewers/SystemOfRecordView';
 
 interface SpineKind {
   id: string;
@@ -37,6 +39,9 @@ export const CONTENT_MODEL_KINDS: SpineKind[] = [
   { id: 'priority', label: 'Priority', layer: 'work', relations: [], view: PriorityView, description: 'A ranked organizational priority.' },
   { id: 'cycle', label: 'Cycle', layer: 'work', relations: [], view: CycleView, description: 'A planning cycle (time box).' },
   { id: 'org', label: 'Org', layer: 'work', relations: [], view: OrgView, description: 'An organization with a charter.' },
+  // Work-graph organizational-layer descriptor kinds (#233)
+  { id: 'team', label: 'Team', layer: 'work', relations: ['leads', 'staffs', 'owns'], view: TeamView, description: 'A team that leads people and owns workstreams.' },
+  { id: 'system-of-record', label: 'System of Record', layer: 'work', relations: ['tracked-in'], view: SystemOfRecordView, description: 'An external system that tracks a workstream (e.g. an ADO board or GitHub repo).' },
 ];
 
 /** Register every spine node type + its bespoke viewer. Idempotent. */

@@ -27,3 +27,11 @@ kinds:
   cycle:
     path: cycles
     orgScoped: false
+  # ── Work-graph organizational-layer descriptors (#233) ──────
+  team:
+    path: teams
+    orgScoped: true
+    aliasField: lead
+  system-of-record:
+    path: systems-of-record
+    orgScoped: false
