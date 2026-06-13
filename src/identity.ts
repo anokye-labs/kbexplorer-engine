@@ -13,6 +13,7 @@ export function assignIdentity(node: KBNode): string | undefined {
     case 'issue':      return `urn:issue:${node.source.number}`;
     case 'pull_request': return `urn:pr:${node.source.number}`;
     case 'commit':     return `urn:commit:${node.source.sha}`;
+    case 'release':    return `urn:release:${node.source.tag}`;
     case 'section':    return undefined;
     default:           return undefined;
   }
