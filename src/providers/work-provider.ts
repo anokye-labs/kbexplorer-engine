@@ -21,6 +21,8 @@ type WorkPullRequest = {
   created_at: string;
   updated_at: string;
   head_branch?: string;
+  /** GitHub user who opened the pull request. */
+  user?: { login: string };
 };
 
 type WorkCommit = {
