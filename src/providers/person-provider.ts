@@ -231,7 +231,7 @@ export class PersonProvider implements GraphProvider {
       const personNode: KBNode = {
         id: nodeId,
         title: `@${d.login}`,
-        cluster: 'person',
+        cluster: 'work',
         content,
         rawContent,
         emoji: 'Person',

@@ -318,13 +318,13 @@ describe('PersonProvider', () => {
       expect(node!.entityType).toBe('person');
     });
 
-    it('places person nodes in the "person" cluster', async () => {
+    it('places person nodes in the "work" cluster (folded with PRs/commits/releases for legend sensemaking — #270)', async () => {
       const issue = makeIssue({ number: 1, assignees: [{ login: 'clustered' }] });
       const provider = new PersonProvider([issue], []);
       const { nodes } = await provider.resolve(config, []);
 
       const node = nodes.find(n => n.id === 'person-clustered');
-      expect(node!.cluster).toBe('person');
+      expect(node!.cluster).toBe('work');
     });
   });
 });

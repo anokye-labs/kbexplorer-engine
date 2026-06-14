@@ -51,12 +51,21 @@ describe('WorkProvider', () => {
     const issueNode = nodes.find(n => n.id === 'issue-42');
     expect(issueNode).toBeDefined();
     expect(issueNode!.title).toBe('Fix crash on startup');
-    expect(issueNode!.cluster).toBe('bug');
+    // All issues land in `work` — labels still travel on the node for filters
+    // but no longer drive cluster identity (avoids legend bloat).
+    expect(issueNode!.cluster).toBe('work');
   });
 
   it('creates PR nodes with cross-references', async () => {
     const pr = makePR(10, 'Fixes #42 and relates to #7');
-    const provider = new WorkProvider([], [pr], []);
+    // Issues 42 and 7 must exist in the catalogue for cross-references to
+    // resolve — the provider filters phantom #NNN refs that point at
+    // nonexistent issues/PRs.
+    const provider = new WorkProvider(
+      [makeIssue({ number: 42 }), makeIssue({ number: 7 })],
+      [pr],
+      [],
+    );
     const { nodes } = await provider.resolve(config, []);
 
     const prNode = nodes.find(n => n.id === 'pr-10');

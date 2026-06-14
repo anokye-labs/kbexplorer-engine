@@ -50,13 +50,13 @@ describe('WorkProvider — release nodes', () => {
     expect(releaseNode!.title).toBe('v0.9.0');
   });
 
-  it('assigns cluster "releases" to release nodes', async () => {
+  it('assigns cluster "work" to release nodes (folded with PRs/commits/people for legend sensemaking — #270)', async () => {
     const provider = new WorkProvider([], [], [], [], null, [makeRelease()]);
     const { nodes } = await provider.resolve(config, []);
 
     const releaseNode = nodes.find(n => n.source.type === 'release');
     expect(releaseNode).toBeDefined();
-    expect(releaseNode!.cluster).toBe('releases');
+    expect(releaseNode!.cluster).toBe('work');
   });
 
   it('assigns source.type = release with tag and prerelease flag', async () => {
@@ -121,25 +121,35 @@ describe('WorkProvider — release nodes', () => {
 });
 
 describe('WorkProvider — release #N cross-reference parsing', () => {
-  it('generates connections to PRs/issues referenced by #N in release notes', async () => {
+  it('generates connections to real PRs/issues referenced by #N in release notes', async () => {
+    // Provide real catalogue entries so the filter knows #42 is a PR and #100
+    // is an issue. Pre-fix, every #N spawned both `issue-N` AND `pr-N` edges
+    // even when only one existed → phantom edges and inflated degree counts.
     const release = makeRelease({
       tag_name: 'v2.0.0',
       body: 'Closes #42\n\nShips PR #100\n\nSee also #7',
     });
-    const provider = new WorkProvider([], [], [], [], null, [release]);
+    const issues = [
+      { number: 100, title: 'Bug', body: '', state: 'closed', labels: [], assignees: [], html_url: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+      { number: 7, title: 'Feature', body: '', state: 'closed', labels: [], assignees: [], html_url: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+    ];
+    const prs = [
+      { number: 42, title: 'PR 42', body: '', state: 'merged', labels: [], html_url: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+    ];
+    const provider = new WorkProvider(issues, prs, [], [], null, [release]);
     const { nodes } = await provider.resolve(config, []);
 
     const releaseNode = nodes.find(n => n.id === 'release-v2.0.0');
     expect(releaseNode).toBeDefined();
 
     const connectedTo = releaseNode!.connections.map(c => c.to);
-    // Should link to both issue and PR for each referenced #N
-    expect(connectedTo).toContain('issue-42');
     expect(connectedTo).toContain('pr-42');
     expect(connectedTo).toContain('issue-100');
-    expect(connectedTo).toContain('pr-100');
     expect(connectedTo).toContain('issue-7');
-    expect(connectedTo).toContain('pr-7');
+    // No phantom — there is no pr-100, no issue-42, no pr-7
+    expect(connectedTo).not.toContain('issue-42');
+    expect(connectedTo).not.toContain('pr-100');
+    expect(connectedTo).not.toContain('pr-7');
   });
 
   it('does not create duplicate connections for the same reference number', async () => {
@@ -147,14 +157,18 @@ describe('WorkProvider — release #N cross-reference parsing', () => {
       tag_name: 'v2.1.0',
       body: 'Closes #5. Also #5 was a blocker.',
     });
-    const provider = new WorkProvider([], [], [], [], null, [release]);
+    const issues = [
+      { number: 5, title: 'Issue 5', body: '', state: 'closed', labels: [], assignees: [], html_url: '', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+    ];
+    const provider = new WorkProvider(issues, [], [], [], null, [release]);
     const { nodes } = await provider.resolve(config, []);
 
     const releaseNode = nodes.find(n => n.id === 'release-v2.1.0');
     const issueTo = releaseNode!.connections.filter(c => c.to === 'issue-5');
     const prTo = releaseNode!.connections.filter(c => c.to === 'pr-5');
     expect(issueTo).toHaveLength(1);
-    expect(prTo).toHaveLength(1);
+    // No pr-5 in the catalogue, so it shouldn't be emitted.
+    expect(prTo).toHaveLength(0);
   });
 
   it('creates no cross-ref connections for a release with no #N in notes', async () => {
