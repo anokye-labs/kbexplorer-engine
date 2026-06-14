@@ -153,9 +153,9 @@ describe('issueToNode', () => {
     expect(node.id).toBe('issue-42');
   });
 
-  it('uses first label as cluster', () => {
+  it('uses the unified `work` cluster regardless of GitHub labels', () => {
     const node = issueToNode(mockIssue);
-    expect(node.cluster).toBe('bug');
+    expect(node.cluster).toBe('work');
   });
 
   it('extracts issue cross-references as connections', () => {
@@ -177,9 +177,25 @@ describe('issueToNode', () => {
     expect(node.connections).toEqual([]);
   });
 
-  it('handles no labels', () => {
+  it('handles no labels and still uses the `work` cluster', () => {
     const node = issueToNode({ ...mockIssue, labels: [] });
-    expect(node.cluster).toBe('uncategorized');
+    expect(node.cluster).toBe('work');
+  });
+
+  it('filters phantom #N refs when knownIssueNumbers is provided', () => {
+    const node = issueToNode(mockIssue, {
+      knownIssueNumbers: new Set([10]), // #15 doesn't exist in the catalogue
+    });
+    expect(node.connections.some(c => c.to === 'issue-10')).toBe(true);
+    expect(node.connections.some(c => c.to === 'issue-15')).toBe(false);
+  });
+
+  it('emits a `tracked-in` edge + parent to the repo node when repoNodeId is set', () => {
+    const node = issueToNode(mockIssue, { repoNodeId: 'repo-meta' });
+    expect(node.parent).toBe('repo-meta');
+    const repoEdge = node.connections.find(c => c.to === 'repo-meta');
+    expect(repoEdge).toBeDefined();
+    expect(repoEdge!.relation).toBe('tracked-in');
   });
 });
 

@@ -189,9 +189,28 @@ export function extractIssueRefs(body: string | null): number[] {
   return [...matches].map(m => Number(m[1]));
 }
 
-export function issueToNode(issue: GHIssue): KBNode {
+/**
+ * Options for {@link issueToNode}. When `knownNumbers` is provided, only `#N`
+ * references that resolve to an existing issue or pull request emit an edge —
+ * this kills the phantom cross-reference edges that otherwise inflate the
+ * graph by hundreds of dangling targets (#NNN refs to PRs/issues that don't
+ * exist in this manifest).
+ */
+export interface IssueToNodeOptions {
+  /** Set of valid issue numbers in this repo (for filtering #N cross-refs). */
+  knownIssueNumbers?: Set<number>;
+  /** Set of valid PR numbers in this repo (for filtering #N cross-refs). */
+  knownPrNumbers?: Set<number>;
+  /** Repository node id — issue is linked to this with a `tracked-in` edge. */
+  repoNodeId?: string;
+}
+
+export function issueToNode(issue: GHIssue, options: IssueToNodeOptions = {}): KBNode {
   const labels = issue.labels.map(l => l.name);
-  const cluster = labels[0]?.toLowerCase() ?? 'uncategorized';
+  // All issues share the same `work` cluster. GitHub labels are open-ended
+  // (#NNN ⇒ 28 clusters in the legend pre-fix). Labels still travel on the node
+  // for filters, badges, and search; they just don't fragment the legend.
+  const cluster = 'work';
   const body = issue.body ?? '';
 
   // Remap GitHub issue/PR links to graph node links
@@ -200,8 +219,6 @@ export function issueToNode(issue: GHIssue): KBNode {
     .replace(/https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/g, (_m, num) => `pr-${num}`)
 
   const refs = extractIssueRefs(body);
-  // Also extract PR references from body
-  const prRefs = [...body.matchAll(/(?:^|\s)#(\d+)/g)].map(m => Number(m[1]));
 
   // Build rich metadata header
   const stateEmoji = issue.state === 'open' ? '🟢' : '🟣';
@@ -223,23 +240,48 @@ export function issueToNode(issue: GHIssue): KBNode {
   const fullContent = `${metaLines}\n\n---\n\n${remappedBody}`;
   const html = marked.parse(fullContent, { async: false }) as string;
 
-  // Build connections — both issue refs and PR refs
+  // Build connections — only emit edges that resolve to a real node.
+  // `#NNN` is ambiguous (issue or PR), so try both when both sets are known.
   const connections: Connection[] = [];
   const seen = new Set<string>();
+  const { knownIssueNumbers, knownPrNumbers, repoNodeId } = options;
   for (const n of refs) {
-    const to = `issue-${n}`;
-    if (!seen.has(to)) {
-      connections.push({ to, type: 'cross_references', description: `References #${n}`, source: 'inline' });
-      seen.add(to);
+    if (n === issue.number) continue; // skip self-reference
+    if (knownIssueNumbers && knownIssueNumbers.has(n)) {
+      const to = `issue-${n}`;
+      if (!seen.has(to)) {
+        connections.push({ to, type: 'cross_references', description: `References #${n}`, source: 'inline' });
+        seen.add(to);
+      }
+    } else if (knownPrNumbers && knownPrNumbers.has(n)) {
+      const to = `pr-${n}`;
+      if (!seen.has(to)) {
+        connections.push({ to, type: 'cross_references', description: `References #${n}`, source: 'inline' });
+        seen.add(to);
+      }
+    } else if (!knownIssueNumbers && !knownPrNumbers) {
+      // Backward compatibility — when no known sets are provided we keep the
+      // legacy behaviour (emit a best-effort issue edge) so callers that don't
+      // know the catalogue still work. New callers should pass knownIssueNumbers.
+      const to = `issue-${n}`;
+      if (!seen.has(to)) {
+        connections.push({ to, type: 'cross_references', description: `References #${n}`, source: 'inline' });
+        seen.add(to);
+      }
     }
   }
-  for (const n of prRefs) {
-    const prTo = `pr-${n}`;
-    if (!seen.has(prTo) && !seen.has(`issue-${n}`)) {
-      // Could be a PR reference — add both possibilities
-      connections.push({ to: `issue-${n}`, type: 'cross_references', description: `References #${n}`, source: 'inline' });
-      seen.add(`issue-${n}`);
-    }
+
+  // Always anchor the issue to the repository so it has a typed structural edge
+  // — without this, issues that don't reference each other become orphans and
+  // the repository node looks isolated in the constellation.
+  if (repoNodeId) {
+    connections.push({
+      to: repoNodeId,
+      type: 'contains',
+      relation: 'tracked-in',
+      description: 'Tracked in repository',
+      source: 'inferred',
+    });
   }
 
   const node: KBNode = {
@@ -252,6 +294,7 @@ export function issueToNode(issue: GHIssue): KBNode {
     connections,
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
   };
+  if (repoNodeId) node.parent = repoNodeId;
   node.identity = assignIdentity(node);
   return node;
 }
@@ -398,7 +441,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
   const rootNode: KBNode = {
     id: 'repo-root',
     title: repoName,
-    cluster: 'code',
+    cluster: 'infra',
     content: rootHtml,
     rawContent: rootContent,
     emoji: 'Folder',
@@ -420,7 +463,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
     nodes.push({
       id: `dir-${dirPath}`,
       title: `${dirPath}/`,
-      cluster: 'code',
+      cluster: 'infra',
       content: html,
       rawContent: content,
       emoji: 'Folder',
@@ -454,7 +497,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
     nodes.push({
       id: `file-${item.path}`,
       title: parts[parts.length - 1],
-      cluster: 'code',
+      cluster: 'infra',
       content: `<p><code>${item.path}</code></p>`,
       rawContent: item.path,
       emoji: 'Document',
@@ -479,7 +522,15 @@ export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
 
   const nodes: KBNode[] = [];
 
-  const issueNodes = issues.map(issueToNode);
+  // Pre-compute the valid issue/PR id sets so issueToNode can filter phantom
+  // #NNN references (this used to produce hundreds of dangling edges).
+  const knownIssueNumbers = new Set(issues.filter(i => !(i as { pull_request?: unknown }).pull_request).map(i => i.number));
+  const knownPrNumbers = new Set(issues.filter(i => (i as { pull_request?: unknown }).pull_request).map(i => i.number));
+  const issueNodes = issues.map(i => issueToNode(i, {
+    knownIssueNumbers,
+    knownPrNumbers,
+    repoNodeId: 'repo-meta',
+  }));
   const dirNodes = treeToNodes(tree, source.repo);
 
   nodes.push(...issueNodes);
