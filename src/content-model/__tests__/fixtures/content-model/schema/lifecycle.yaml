@@ -8,8 +8,12 @@ bands:
     # Work-graph descriptor kinds (#233) — durable organizational layer
     - team
     - system-of-record
+    # Services-monorepo core kinds (#275)
+    - service
   per-cycle:
     - mission
     - cycle
     - priority
-  per-event: []
+  per-event:
+    # Decisions (ADRs) are immutable point-in-time records (#275)
+    - decision

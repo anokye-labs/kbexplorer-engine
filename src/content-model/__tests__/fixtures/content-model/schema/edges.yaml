@@ -95,6 +95,54 @@ edges:
     description: Workstream tracked in system of record
   # person.manager → person (already covered by person-manager above; omitted to avoid duplicate)
 
+  # ── Service + Decision edges (Feature H — #275) ────────────
+  # NOTE: service/decision are authority-scoped, so a scalar/array FK to an
+  # org-scoped target (team / workstream / mission) resolves the target in its
+  # default (home) org. Cross-org references would need an explicit org and are
+  # out of scope here — the example entities all point at default-org targets.
+  # service.team → team (scalar FK → owned-by edge)
+  - id: service-owner
+    from: service
+    field: team
+    to: team
+    fk: scalar
+    relation: owned-by
+    description: Service owned by team
+  # service.systems-of-record → system-of-record[] (array FK → tracked-in edges)
+  - id: service-sor
+    from: service
+    field: systems-of-record
+    to: system-of-record
+    fk: array
+    relation: tracked-in
+    description: Service tracked in system of record
+  # decision.deciders → person[] (array FK → decided-by edges)
+  - id: decision-deciders
+    from: decision
+    field: deciders
+    to: person
+    fk: array
+    relation: decided-by
+    description: Decision decided by
+  # decision affects work — split across two fields because an FK rule has a
+  # single target kind; both emit the `affects` relation.
+  # decision.affects-workstreams → workstream[] (array FK → affects edges)
+  - id: decision-affects-workstream
+    from: decision
+    field: affects-workstreams
+    to: workstream
+    fk: array
+    relation: affects
+    description: Decision affects workstream
+  # decision.affects-missions → mission[] (array FK → affects edges)
+  - id: decision-affects-mission
+    from: decision
+    field: affects-missions
+    to: mission
+    fk: array
+    relation: affects
+    description: Decision affects mission
+
 derived:
   # squads that deliver the same workstream are aligned (computed, not stored)
   - id: squad-coalignment

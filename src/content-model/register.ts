@@ -20,6 +20,8 @@ import { CycleView } from '../../views/viewers/CycleView';
 import { OrgView } from '../../views/viewers/OrgView';
 import { TeamView } from '../../views/viewers/TeamView';
 import { SystemOfRecordView } from '../../views/viewers/SystemOfRecordView';
+import { ServiceView } from '../../views/viewers/ServiceView';
+import { DecisionView } from '../../views/viewers/DecisionView';
 
 interface SpineKind {
   id: string;
@@ -42,6 +44,9 @@ export const CONTENT_MODEL_KINDS: SpineKind[] = [
   // Work-graph organizational-layer descriptor kinds (#233)
   { id: 'team', label: 'Team', layer: 'work', relations: ['leads', 'staffs', 'owns'], view: TeamView, description: 'A team that leads people and owns workstreams.' },
   { id: 'system-of-record', label: 'System of Record', layer: 'work', relations: ['tracked-in'], view: SystemOfRecordView, description: 'An external system that tracks a workstream (e.g. an ADO board or GitHub repo).' },
+  // Services-monorepo core kinds (#275)
+  { id: 'service', label: 'Service', layer: 'work', relations: ['owned-by', 'tracked-in'], view: ServiceView, description: 'A deployable service owned by a team, with a ServiceTree id and catalog-info path.' },
+  { id: 'decision', label: 'Decision', layer: 'work', relations: ['decided-by', 'affects'], view: DecisionView, description: 'An architecture decision record (ADR) — deciders, status, context, and the work it affects.' },
 ];
 
 /** Register every spine node type + its bespoke viewer. Idempotent. */

@@ -63,8 +63,9 @@ export class ContentModelProvider implements GraphProvider {
     // squads, priorities, missions, etc.
     //
     // Without cluster folding: each kind (person / squad / priority /
-    // workstream / cycle / mission / org / team / system-of-record) becomes
-    // its own 1-5 node singleton cluster and the legend fragments. The
+    // workstream / cycle / mission / org / team / system-of-record /
+    // service / decision) becomes its own 1-5 node singleton cluster and the
+    // legend fragments. The
     // entity's native kind is preserved in `data.@type` and `entityType`
     // for typed-viewer routing, so the fold is purely cosmetic.
     //

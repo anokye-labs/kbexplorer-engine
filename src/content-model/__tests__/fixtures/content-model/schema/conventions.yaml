@@ -35,3 +35,10 @@ kinds:
   system-of-record:
     path: systems-of-record
     orgScoped: false
+  # ── Services-monorepo core kinds (#275) ─────────────────────
+  service:
+    path: services
+    orgScoped: false
+  decision:
+    path: decisions
+    orgScoped: false

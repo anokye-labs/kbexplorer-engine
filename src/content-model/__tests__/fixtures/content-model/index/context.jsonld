@@ -9,6 +9,8 @@
     "priority": "kg://xbox.com/priorities/",
     "cycle": "kg://xbox.com/cycles/",
     "team": "kg://xbox.com/teams/",
-    "system-of-record": "kg://xbox.com/systems-of-record/"
+    "system-of-record": "kg://xbox.com/systems-of-record/",
+    "service": "kg://xbox.com/services/",
+    "decision": "kg://xbox.com/decisions/"
   }
 }
