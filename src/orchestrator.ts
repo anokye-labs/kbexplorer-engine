@@ -6,6 +6,12 @@ import type { KBNode, KBGraph, KBConfig } from '../types';
 import type { ProviderRegistry } from './providers';
 import { extractClusters } from './parser';
 import { buildGraph } from './graph';
+import {
+  applyTransforms,
+  DEFAULT_TRANSFORMS,
+  type GraphTransform,
+  type TransformContext,
+} from './transforms';
 
 /**
  * Run all registered providers in dependency order and collect their nodes.
@@ -38,4 +44,23 @@ export async function orchestrate(
   const allNodes = await collectProviderNodes(registry, config);
   const clusters = extractClusters(allNodes, config);
   return buildGraph(allNodes, clusters);
+}
+
+/**
+ * Run providers, then the ordered post-provider transform stage, then build the
+ * final graph. This is the single assembly path shared by the local and remote
+ * loaders: they wire providers + a {@link TransformContext} and call this; all
+ * post-processing (README synthesis, issue→directory linking, issue splitting)
+ * lives in the transforms, not the loaders.
+ */
+export async function orchestrateWithTransforms(
+  registry: ProviderRegistry,
+  config: KBConfig,
+  ctx: TransformContext,
+  transforms: readonly GraphTransform[] = DEFAULT_TRANSFORMS,
+): Promise<KBGraph> {
+  const allNodes = await collectProviderNodes(registry, config);
+  const transformed = applyTransforms(allNodes, ctx, transforms);
+  const clusters = extractClusters(transformed, config);
+  return buildGraph(transformed, clusters);
 }
