@@ -13,7 +13,7 @@ import { WorkProvider } from '../../providers/work-provider';
 import type { GHRelease } from '../../../api';
 import type { KBConfig } from '../../../types';
 import { DEFAULT_CONFIG } from '../../../types';
-import { getNodeLayer } from '../../../types';
+import { getNodeLayer } from '../../../representation/graph-layers';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
