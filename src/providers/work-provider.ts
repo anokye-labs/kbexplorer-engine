@@ -11,6 +11,9 @@ import { issueToNode, extractIssueRefs } from '../parser';
 import { assignIdentity } from '../identity';
 import type { GHIssue, GHRelease } from '../../api';
 
+const DATE_FORMAT = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
+const SHORT_DATE_FORMAT = { month: 'short', day: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
+
 type WorkPullRequest = {
   number: number;
   title: string;
@@ -109,8 +112,8 @@ export class WorkProvider implements GraphProvider {
       // Rich metadata header
       const stateEmoji = pr.state === 'open' ? '🟢' : pr.state === 'merged' ? '🟣' : '🔴';
       const labelBadges = pr.labels?.map(l => `\`${l.name}\``).join(' ') ?? '';
-      const created = new Date(pr.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const updated = new Date(pr.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const created = new Date(pr.created_at).toLocaleDateString('en-US', DATE_FORMAT);
+      const updated = new Date(pr.updated_at).toLocaleDateString('en-US', DATE_FORMAT);
 
       const metaLines = [
         `${stateEmoji} **${(pr.state || 'closed').toUpperCase()}** · PR #${pr.number}`,
@@ -183,7 +186,7 @@ export class WorkProvider implements GraphProvider {
         .slice(0, 30)
         .map(c => {
           const msg = c.commit.message.split('\n')[0];
-          const date = new Date(c.commit.author.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const date = new Date(c.commit.author.date).toLocaleDateString('en-US', SHORT_DATE_FORMAT);
           const refs = extractIssueRefs(c.commit.message);
           const refLinks = refs.map(n => `[#${n}](issue-${n})`).join(' ');
           return `- \`${c.sha.substring(0, 7)}\` ${msg}${refLinks ? ' — ' + refLinks : ''} *(${date})*`;
@@ -332,7 +335,7 @@ export class WorkProvider implements GraphProvider {
       // Build rich metadata header
       const prereleaseBadge = release.prerelease ? '🔶 **PRE-RELEASE**' : '🟢 **RELEASE**';
       const pubDate = release.published_at
-        ? new Date(release.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? new Date(release.published_at).toLocaleDateString('en-US', DATE_FORMAT)
         : '';
 
       const metaLines = [
