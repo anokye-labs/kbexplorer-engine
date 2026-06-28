@@ -108,13 +108,13 @@ export async function loadKnowledgeBase(
       import('./store/store-orchestrator'),
     ]);
     const store = await SQLiteGraphStore.create();
-    const key = await buildProviderResultCacheKey(source, config, data);
     const graph = await orchestrateWithProviderResultStore(
       registry,
       config,
       { readme: data.readme },
       store,
-      key,
+      (providerId, previousContentHash) =>
+        buildProviderResultCacheKey(source, config, data, providerId, previousContentHash),
     );
     return { graph, config };
   }

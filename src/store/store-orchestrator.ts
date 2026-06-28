@@ -1,10 +1,7 @@
-import type { KBConfig, KBGraph, KBNode, GraphStore } from '../../types';
+import type { KBConfig, KBGraph, KBNode, GraphStore, GraphStoreEntry } from '../../types';
 import { extractClusters } from '../parser';
 import { buildGraph } from '../graph';
 import type { ProviderRegistry, ProviderResult } from '../providers';
-import {
-  collectProviderNodes,
-} from '../orchestrator';
 import {
   applyTransforms,
   DEFAULT_TRANSFORMS,
@@ -16,40 +13,76 @@ import {
   GRAPH_STORE_API_VERSION,
   GRAPH_STORE_CACHE_KEY_VERSION,
 } from '../../types';
-import { GRAPH_STORE_DERIVATION_VERSION } from './fingerprint';
+import {
+  GRAPH_STORE_DERIVATION_VERSION,
+  hashProviderResultPrefix,
+} from './fingerprint';
+
+export type ProviderCacheKeyBuilder = (
+  providerId: string,
+  previousContentHash: GraphStoreCacheKey['contentHash'] | undefined,
+) => Promise<GraphStoreCacheKey>;
 
 export async function orchestrateWithProviderResultStore(
   registry: ProviderRegistry,
   config: KBConfig,
   ctx: TransformContext,
   store: GraphStore<ProviderResult>,
-  key: GraphStoreCacheKey,
+  buildCacheKey: ProviderCacheKeyBuilder,
   transforms: readonly GraphTransform[] = DEFAULT_TRANSFORMS,
 ): Promise<KBGraph> {
-  const cached = await store.get(key);
-  if (cached) {
-    const nodes = validateProviderResult(cached.value, 'cached graph store entry').nodes;
-    return buildGraph(nodes, extractClusters(nodes, config));
+  const providers = registry.getExecutionOrder();
+  let allNodes: KBNode[] = [];
+  let previousContentHash: GraphStoreCacheKey['contentHash'] | undefined;
+
+  for (const provider of providers) {
+    const key = await buildCacheKey(provider.id, previousContentHash);
+    const cached = await store.get(key);
+    if (cached) {
+      allNodes = cloneProviderResult(
+        validateProviderResult(cached.value, `cached graph store entry for ${provider.id}`),
+      ).nodes;
+      previousContentHash = await hashProviderResultPrefix(provider.id, allNodes);
+      continue;
+    }
+
+    const result = await provider.resolve(config, allNodes);
+    allNodes.push(...result.nodes);
+    const value: ProviderResult = cloneProviderResult({ nodes: allNodes, edges: [] });
+    await store.put({
+      key,
+      value,
+      dependencies: [dependencyFor(key, previousContentHash)],
+      metadata: {
+        graphStoreApiVersion: GRAPH_STORE_API_VERSION,
+        graphStoreCacheKeyVersion: GRAPH_STORE_CACHE_KEY_VERSION,
+        graphStoreDerivationVersion: GRAPH_STORE_DERIVATION_VERSION,
+        providerId: provider.id,
+      },
+    });
+    previousContentHash = await hashProviderResultPrefix(provider.id, allNodes);
   }
 
-  const allNodes = await collectProviderNodes(registry, config);
   const transformed = applyTransforms(allNodes, ctx, transforms);
-  const value: ProviderResult = { nodes: transformed, edges: [] };
-  await store.put({
-    key,
-    value,
-    dependencies: [{
-      href: key.sourceId ?? key.providerId,
-      contentHash: key.contentHash,
-      sourceId: key.sourceId,
-    }],
-    metadata: {
-      graphStoreApiVersion: GRAPH_STORE_API_VERSION,
-      graphStoreCacheKeyVersion: GRAPH_STORE_CACHE_KEY_VERSION,
-      graphStoreDerivationVersion: GRAPH_STORE_DERIVATION_VERSION,
-    },
-  });
   return buildGraph(transformed, extractClusters(transformed, config));
+}
+
+function dependencyFor(
+  key: GraphStoreCacheKey,
+  previousContentHash: GraphStoreCacheKey['contentHash'] | undefined,
+): NonNullable<GraphStoreEntry<ProviderResult>['dependencies']>[number] {
+  return {
+    href: previousContentHash ? `${key.sourceId ?? key.providerId}#previous` : key.sourceId ?? key.providerId,
+    contentHash: previousContentHash ?? key.contentHash,
+    sourceId: key.sourceId,
+  };
+}
+
+function cloneProviderResult(value: ProviderResult): ProviderResult {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as ProviderResult;
 }
 
 function validateProviderResult(value: ProviderResult, label: string): ProviderResult {
