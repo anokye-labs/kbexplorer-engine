@@ -19,6 +19,8 @@ import { StructuralProvider } from './providers/structural-provider';
 import { ContentModelProvider } from './providers/content-model-provider';
 import { orchestrateWithTransforms } from './orchestrator';
 import type { RepoSource, RepoData } from './sources/repo-data';
+import { resolveGraphStoreOptions } from './store/config';
+import { buildProviderResultCacheKey } from './store/fingerprint';
 
 /** Build + register the provider pipeline from a normalized {@link RepoData} bundle. */
 export function registerProviders(registry: ProviderRegistry, data: RepoData): void {
@@ -94,6 +96,27 @@ export async function loadKnowledgeBase(
     const { loadExternalProviders } = await import('./plugin-loader');
     const externals = await loadExternalProviders(config.providers);
     for (const p of externals) registry.register(p);
+  }
+
+  const storeOptions = resolveGraphStoreOptions();
+  if (storeOptions.mode === 'sqlite') {
+    const [
+      { SQLiteGraphStore },
+      { orchestrateWithProviderResultStore },
+    ] = await Promise.all([
+      import('./store/sqlite-graph-store'),
+      import('./store/store-orchestrator'),
+    ]);
+    const store = await SQLiteGraphStore.create();
+    const key = await buildProviderResultCacheKey(source, config, data);
+    const graph = await orchestrateWithProviderResultStore(
+      registry,
+      config,
+      { readme: data.readme },
+      store,
+      key,
+    );
+    return { graph, config };
   }
 
   const graph = await orchestrateWithTransforms(registry, config, { readme: data.readme });
