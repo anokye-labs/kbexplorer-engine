@@ -142,21 +142,21 @@ describe('OrgChartProvider', () => {
 // ── Plugin Loader ──────────────────────────────────────────
 
 describe('loadExternalProviders', () => {
-  it('creates Wikipedia and OrgChart providers from config', () => {
+  it('creates Wikipedia and OrgChart providers from config', async () => {
     const configs: ExternalProviderConfig[] = [
       { type: 'wikipedia', name: 'Wiki', options: { articles: [] } },
       { type: 'orgchart', name: 'Team', options: { people: [] } },
     ]
 
-    const providers = loadExternalProviders(configs)
+    const providers = await loadExternalProviders(configs)
     expect(providers).toHaveLength(2)
     expect(providers[0].id).toBe('wikipedia-wiki')
     expect(providers[1].id).toBe('orgchart-team')
   })
 
-  it('warns on unknown provider type', () => {
+  it('warns and skips a custom type with no module specifier', async () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const providers = loadExternalProviders([
+    const providers = await loadExternalProviders([
       { type: 'custom', name: 'Test' },
     ])
     expect(providers).toHaveLength(0)
@@ -164,8 +164,64 @@ describe('loadExternalProviders', () => {
     spy.mockRestore()
   })
 
-  it('handles empty config array', () => {
-    const providers = loadExternalProviders([])
+  it('handles empty config array', async () => {
+    const providers = await loadExternalProviders([])
     expect(providers).toHaveLength(0)
+  })
+
+  // ── Local ES-module loading (F5a) ──────────────────────────
+  it('loads a local ES-module provider by specifier and contributes nodes', async () => {
+    const providers = await loadExternalProviders([
+      {
+        type: 'glossary',
+        name: 'Glossary',
+        cluster: 'reference',
+        module: './providers/examples/glossary-provider',
+        options: {
+          terms: [
+            {
+              id: 'knowledge-graph',
+              term: 'Knowledge Graph',
+              definition: 'A graph of entities and relationships.',
+              connections: ['graph-engine'],
+            },
+          ],
+        },
+      },
+    ])
+
+    expect(providers).toHaveLength(1)
+    expect(providers[0].id).toBe('glossary-glossary')
+
+    const result = await providers[0].resolve(DEFAULT_CONFIG, [])
+    expect(result.nodes).toHaveLength(1)
+    expect(result.nodes[0].id).toBe('glossary-knowledge-graph')
+    expect(result.nodes[0].title).toBe('Knowledge Graph')
+    expect(result.nodes[0].cluster).toBe('reference')
+    expect(result.nodes[0].source).toEqual({ type: 'external', provider: 'glossary-glossary' })
+    expect(result.nodes[0].connections).toEqual([
+      { to: 'graph-engine', description: 'Defines' },
+    ])
+  })
+
+  it('warns and skips a non-local (bare/absolute/URL) module specifier', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const providers = await loadExternalProviders([
+      { type: 'custom', name: 'Remote', module: 'https://evil.example/provider.js' },
+      { type: 'custom', name: 'Bare', module: 'some-npm-package' },
+    ])
+    expect(providers).toHaveLength(0)
+    expect(spy).toHaveBeenCalledTimes(2)
+    spy.mockRestore()
+  })
+
+  it('warns and skips when a module specifier cannot be resolved', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const providers = await loadExternalProviders([
+      { type: 'custom', name: 'Broken', module: './providers/examples/does-not-exist' },
+    ])
+    expect(providers).toHaveLength(0)
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
   })
 })
