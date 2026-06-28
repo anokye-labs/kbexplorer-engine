@@ -92,7 +92,7 @@ export async function loadKnowledgeBase(
   // External providers declared in config (local-ES-module first; F5).
   if (config.providers && config.providers.length > 0) {
     const { loadExternalProviders } = await import('./plugin-loader');
-    const externals = loadExternalProviders(config.providers);
+    const externals = await loadExternalProviders(config.providers);
     for (const p of externals) registry.register(p);
   }
 
