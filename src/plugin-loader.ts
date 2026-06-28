@@ -8,7 +8,14 @@
  *      dynamic-imports that ES-module specifier and calls its default export
  *      (a `ProviderFactory` created with `defineProvider()` from
  *      `@anokye-labs/kbexplorer-core`). This is the headline extensibility path:
- *      a provider can be added with no core code change.
+ *      a provider can be added with no core code change. The specifier may be a
+ *      **local** relative path (`./`, `../`) or a **bare npm package** name
+ *      (`pkg`, `@scope/pkg`, `pkg/subpath`) resolved from `node_modules`;
+ *      absolute paths and URL/scheme specifiers are rejected so the loader
+ *      never executes arbitrary remote code. A third-party module is guarded
+ *      against the provider-contract version + capabilities it declares
+ *      ({@link checkProviderCompatibility}) and skipped with a clear message if
+ *      incompatible, rather than crashing the build.
  *   2. **First-party built-in** — `wikipedia` / `orgchart` are resolved directly.
  *
  * Providers authored against the core contract expose a `resolve(context)`
@@ -20,10 +27,49 @@ import type { GraphProvider, ProviderResult } from './providers'
 import type { ExternalProviderConfig, KBConfig, KBNode } from '../types'
 import type {
   GraphProvider as CoreGraphProvider,
+  ProviderCapability,
+  ProviderHostContract,
   ProviderModule,
+} from '@anokye-labs/kbexplorer-core'
+import {
+  PROVIDER_API_VERSION,
+  checkProviderCompatibility,
 } from '@anokye-labs/kbexplorer-core'
 import { WikipediaProvider } from './providers/wikipedia-provider'
 import { OrgChartProvider } from './providers/orgchart-provider'
+
+/**
+ * What this host engine advertises to the provider-compatibility guard: the
+ * provider-contract version it implements and the capabilities it can satisfy.
+ * The template runs providers via {@link adaptCoreProvider}, contributing nodes
+ * and edges to the graph but not (yet) populating the `sources` map on the
+ * provider context — so a provider that requires `sources` is incompatible.
+ */
+const HOST_CONTRACT: ProviderHostContract = {
+  apiVersion: PROVIDER_API_VERSION,
+  capabilities: ['graph:nodes', 'graph:edges'] satisfies ProviderCapability[],
+}
+
+/** How a `module` specifier resolves (or why it is refused). */
+type SpecifierKind = 'local' | 'bare' | 'rejected'
+
+/**
+ * Classify a `module` specifier. Relative paths are local; bare package names
+ * (incl. `@scope/pkg` and subpaths) resolve from `node_modules`. Anything with
+ * a URL scheme (`https:`, `file:`, `node:`, …), a Windows drive, or an absolute
+ * POSIX path is rejected — those could pull in arbitrary/remote code.
+ */
+function classifySpecifier(specifier: string): SpecifierKind {
+  if (specifier.startsWith('./') || specifier.startsWith('../')) return 'local'
+  if (
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(specifier) ||
+    specifier.startsWith('/') ||
+    specifier.startsWith('\\')
+  ) {
+    return 'rejected'
+  }
+  return 'bare'
+}
 
 /**
  * Adapt a core-contract provider (`resolve(context)`) to the template engine's
@@ -52,12 +98,12 @@ async function loadModuleProvider(
 ): Promise<GraphProvider | null> {
   const specifier = config.module
   if (!specifier) return null
-  // F5a scopes loading to *local* modules: only relative specifiers are allowed.
-  // This keeps arbitrary bare/absolute/URL specifiers (which could execute
-  // unexpected code) out; third-party package specifiers arrive in F5b.
-  if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+  // Local relative paths (F5a) and bare npm package specifiers (F5b) are
+  // allowed; absolute paths and URL/scheme specifiers are refused so the loader
+  // never executes arbitrary remote code.
+  if (classifySpecifier(specifier) === 'rejected') {
     console.warn(
-      `[kbexplorer] Provider module "${specifier}" is not a local (\`./\` or \`../\`) specifier; only local modules are supported (third-party packages: F5b). Skipping.`,
+      `[kbexplorer] Provider module "${specifier}" is not a local (\`./\`, \`../\`) or bare npm package specifier; absolute/URL specifiers are not supported (no remote code execution). Skipping.`,
     )
     return null
   }
@@ -67,6 +113,15 @@ async function loadModuleProvider(
     if (typeof factory !== 'function') {
       console.warn(
         `[kbexplorer] Provider module "${specifier}" has no default-export factory (use defineProvider()).`,
+      )
+      return null
+    }
+    // Guard third-party providers against the contract version + capabilities
+    // they declare; skip (don't crash) an incompatible one with a clear reason.
+    const compat = checkProviderCompatibility(mod, HOST_CONTRACT)
+    if (!compat.compatible) {
+      console.warn(
+        `[kbexplorer] Provider module "${specifier}" ${compat.reason}. Skipping.`,
       )
       return null
     }
