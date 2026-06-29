@@ -49,48 +49,48 @@ function buildEdges(
   nodeMap: Map<string, KBNode>
 ): KBEdge[] {
   const edgeSet = new Map<string, KBEdge>();
+  const addEdge = (edge: KBEdge): void => {
+    const key = edgeKey(edge);
+    if (!edgeSet.has(key)) {
+      edgeSet.set(key, edge);
+    }
+  };
 
   for (const node of nodes) {
     for (const conn of node.connections) {
       if (nodeMap.has(conn.to)) {
-        const key = edgeKey(node.id, conn.to);
-        if (!edgeSet.has(key)) {
-          const edgeType: EdgeType = conn.type ?? 'references';
-          edgeSet.set(key, {
-            from: node.id,
-            to: conn.to,
-            type: edgeType,
-            description: conn.description,
-            source: conn.source ?? 'frontmatter',
-            weight: conn.weight ?? getEdgeWeight(edgeType),
-            ...(conn.relation ? { relation: conn.relation } : {}),
-          });
-        }
+        const edgeType: EdgeType = conn.type ?? 'references';
+        addEdge({
+          from: node.id,
+          to: conn.to,
+          type: edgeType,
+          description: conn.description,
+          source: conn.source ?? 'frontmatter',
+          weight: conn.weight ?? getEdgeWeight(edgeType),
+          ...(conn.relation ? { relation: conn.relation } : {}),
+        });
       }
     }
 
     // Parent → child edges (strong containment)
     if (node.parent && nodeMap.has(node.parent)) {
-      const key = edgeKey(node.parent, node.id);
-      if (!edgeSet.has(key)) {
-        edgeSet.set(key, {
-          from: node.parent,
-          to: node.id,
-          type: 'contains',
-          description: 'Contains',
-          source: 'inferred',
-          weight: EDGE_TYPE_WEIGHTS.contains,
-        });
-      }
+      addEdge({
+        from: node.parent,
+        to: node.id,
+        type: 'contains',
+        description: 'Contains',
+        source: 'inferred',
+        weight: EDGE_TYPE_WEIGHTS.contains,
+      });
     }
   }
 
   return [...edgeSet.values()];
 }
 
-/** Canonical edge key for deduplication. */
-function edgeKey(a: string, b: string): string {
-  return a < b ? `${a}|${b}` : `${b}|${a}`;
+/** Directed semantic edge key for deduplication. */
+function edgeKey(edge: Pick<KBEdge, 'from' | 'to' | 'type' | 'relation'>): string {
+  return `${edge.from}\u0000${edge.to}\u0000${edge.type}\u0000${edge.relation ?? ''}`;
 }
 
 /** Compute related nodes for each node, ranked by edge weight. */

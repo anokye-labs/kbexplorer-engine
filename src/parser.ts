@@ -12,6 +12,7 @@ import type {
   KBConfig,
   Cluster,
   Connection,
+  EdgeType,
   SourceConfig,
 } from '../types';
 import { DEFAULT_CONFIG } from '../types';
@@ -39,7 +40,7 @@ interface AuthoredFrontmatter {
   parent?: string;
   derived?: boolean;
   display?: import('../types').DisplayMode;
-  connections?: Array<{ to: string; description: string }>;
+  connections?: unknown;
   accent?: string;
   tokens?: Partial<Record<string, string>>;
   theme?: string;
@@ -65,6 +66,50 @@ function buildPageTheme(fm: Partial<AuthoredFrontmatter>): import('../types').Pa
   return page.accent || page.theme || page.tokens ? page : undefined;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function normalizeText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeWeight(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function parseAuthoredConnections(value: unknown): Connection[] {
+  if (!Array.isArray(value)) return [];
+  const connections: Connection[] = [];
+  for (const item of value) {
+    const conn = asRecord(item);
+    if (!conn) continue;
+    const to = normalizeText(conn.to);
+    if (!to) continue;
+    const type = normalizeText(conn.type) as EdgeType | undefined;
+    const relation = normalizeText(conn.relation);
+    const weight = normalizeWeight(conn.weight);
+    connections.push({
+      to,
+      type: type ?? 'frontmatter',
+      description: typeof conn.description === 'string' ? conn.description : '',
+      source: 'frontmatter',
+      ...(weight !== undefined ? { weight } : {}),
+      ...(relation ? { relation } : {}),
+    });
+  }
+  return connections;
+}
+
 /** Parse YAML frontmatter from a markdown string (no Buffer dependency). */
 function parseFrontmatter(raw: string): { data: Record<string, unknown>; content: string } {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
@@ -84,13 +129,8 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   const id = fm.id ?? path.replace(/\.md$/, '').replace(/.*\//, '');
   const html = marked.parse(content, { async: false }) as string;
 
-  // Start with frontmatter connections
-  const connections: Connection[] = (fm.connections ?? []).map(c => ({
-    to: c.to,
-    type: 'frontmatter' as const,
-    description: c.description ?? '',
-    source: 'frontmatter' as const,
-  }));
+  // Start with sanitized frontmatter connections.
+  const connections: Connection[] = parseAuthoredConnections(fm.connections);
 
   // Extract inline markdown links: [text](target)
   const connectedTo = new Set(connections.map(c => c.to));

@@ -40,6 +40,83 @@ Body text.`;
     expect(node.identity).toBe('urn:content:test-node');
   });
 
+  it('preserves typed relation metadata from authored connections', () => {
+    const raw = `---
+id: source
+title: Source
+cluster: engine
+connections:
+  - to: target
+    type: imports
+    relation: structural
+    description: "Imports target"
+    weight: 4
+---
+
+Body.`;
+
+    const node = parseMarkdownFile('content/source.md', raw);
+    expect(node.connections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        to: 'target',
+        type: 'imports',
+        relation: 'structural',
+        description: 'Imports target',
+        weight: 4,
+        source: 'frontmatter',
+      }),
+    ]));
+  });
+
+  it('normalizes authored connection metadata from untrusted YAML values', () => {
+    const raw = `---
+id: source
+title: Source
+cluster: engine
+connections:
+  - to: " target "
+    type: " imports "
+    relation: " structural "
+    description: "Imports target"
+    weight: "4"
+  - to: fallback
+    type: 123
+    relation:
+      - bad
+    weight: "NaN"
+  - to: ignored-infinite
+    weight: .inf
+  - to: 42
+    type: imports
+---
+
+Body.`;
+
+    const node = parseMarkdownFile('content/source.md', raw);
+    expect(node.connections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        to: 'target',
+        type: 'imports',
+        relation: 'structural',
+        weight: 4,
+      }),
+      expect.objectContaining({
+        to: 'fallback',
+        type: 'frontmatter',
+      }),
+      expect.objectContaining({
+        to: 'ignored-infinite',
+        type: 'frontmatter',
+      }),
+    ]));
+    const fallback = node.connections.find(c => c.to === 'fallback');
+    expect(fallback).not.toHaveProperty('relation');
+    expect(fallback).not.toHaveProperty('weight');
+    const ignoredInfinite = node.connections.find(c => c.to === 'ignored-infinite');
+    expect(ignoredInfinite).not.toHaveProperty('weight');
+    expect(node.connections.some(c => c.to === '42')).toBe(false);
+  });
+
   it('generates id from filename when no frontmatter id', () => {
     const raw = '# Just a heading\n\nSome content.';
     const node = parseMarkdownFile('content/my-page.md', raw);

@@ -147,18 +147,68 @@ describe('buildEdges (via buildGraph)', () => {
     expect(edge!.weight).toBe(EDGE_TYPE_WEIGHTS.contains);
   });
 
-  it('deduplicates edges between the same pair of nodes', () => {
+  it('deduplicates repeated edges with the same direction, type, and relation', () => {
     const nodes = [
-      makeNode('a', { connections: [conn('b')] }),
-      makeNode('b', { connections: [conn('a')] }),
+      makeNode('a', { connections: [conn('b'), conn('b')] }),
+      makeNode('b'),
     ];
     const graph = buildGraph(nodes, clusters);
 
-    // Only one edge should exist between a and b (canonical key dedup)
-    const abEdges = graph.edges.filter(
-      e => (e.from === 'a' && e.to === 'b') || (e.from === 'b' && e.to === 'a'),
-    );
+    const abEdges = graph.edges.filter(e => e.from === 'a' && e.to === 'b');
     expect(abEdges).toHaveLength(1);
+  });
+
+  it('preserves parallel edges when type or relation differs', () => {
+    const nodes = [
+      makeNode('a', {
+        connections: [
+          conn('b', { type: 'references', relation: 'structural', description: 'Structurally references b' }),
+          conn('b', { type: 'imports', relation: 'derived', description: 'Imports b' }),
+          conn('b', { type: 'references', relation: 'tracked-in', description: 'Tracked in b' }),
+        ],
+      }),
+      makeNode('b'),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
+    const abEdges = graph.edges.filter(e => e.from === 'a' && e.to === 'b');
+    expect(abEdges).toHaveLength(3);
+    expect(abEdges.map(e => `${e.type}:${e.relation}`).sort()).toEqual([
+      'imports:derived',
+      'references:structural',
+      'references:tracked-in',
+    ]);
+  });
+
+  it('preserves opposite-direction relationships as distinct directed edges', () => {
+    const nodes = [
+      makeNode('a', { connections: [conn('b', { relation: 'reports-to' })] }),
+      makeNode('b', { connections: [conn('a', { relation: 'staffs' })] }),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
+    expect(graph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'a', to: 'b', relation: 'reports-to' }),
+      expect.objectContaining({ from: 'b', to: 'a', relation: 'staffs' }),
+    ]));
+  });
+
+  it('deduplicates matching parent contains edges while preserving distinct relation edges', () => {
+    const nodes = [
+      makeNode('parent', {
+        connections: [
+          conn('child', { type: 'contains', description: 'Explicit contains' }),
+          conn('child', { type: 'contains', relation: 'tracked-in', description: 'Tracked hierarchy' }),
+        ],
+      }),
+      makeNode('child', { parent: 'parent' }),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
+    const containsEdges = graph.edges.filter(e => e.from === 'parent' && e.to === 'child' && e.type === 'contains');
+    expect(containsEdges).toHaveLength(2);
+    expect(containsEdges.filter(e => !e.relation)).toHaveLength(1);
+    expect(containsEdges.some(e => e.relation === 'tracked-in')).toBe(true);
   });
 });
 
@@ -179,6 +229,24 @@ describe('computeRelated (via buildGraph)', () => {
     const graph = buildGraph(nodes, clusters);
 
     // 'a' should list b before c (contains=5 > mentions=0.5)
+    expect(graph.related['a'][0]).toBe('b');
+    expect(graph.related['a'][1]).toBe('c');
+  });
+
+  it('uses the strongest parallel edge when ranking related nodes', () => {
+    const nodes = [
+      makeNode('a', {
+        connections: [
+          conn('b', { type: 'mentions', weight: EDGE_TYPE_WEIGHTS.mentions }),
+          conn('b', { type: 'contains', relation: 'structural', weight: EDGE_TYPE_WEIGHTS.contains }),
+          conn('c', { type: 'references', weight: EDGE_TYPE_WEIGHTS.references }),
+        ],
+      }),
+      makeNode('b'),
+      makeNode('c'),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
     expect(graph.related['a'][0]).toBe('b');
     expect(graph.related['a'][1]).toBe('c');
   });
