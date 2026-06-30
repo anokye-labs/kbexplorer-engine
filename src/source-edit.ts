@@ -75,19 +75,26 @@ export function normalizeNewlines(text: string): string {
 /**
  * Validate that edited content parses as its declared format **before** any
  * handoff, so a user never opens a PR carrying invalid YAML/JSON. Empty content
- * is rejected (an entity file must contain a document).
+ * is rejected (an entity file must contain a document). `markdown` is accepted
+ * as always-valid (there is nothing to parse) — `canEditSource` currently only
+ * surfaces the editor for `yaml`/`json`, but accepting the full
+ * `NodeSourceFile['format']` union keeps this forward-compatible and total.
  */
-export function validateSourceContent(raw: string, format: 'yaml' | 'json'): ValidationResult {
+export function validateSourceContent(
+  raw: string,
+  format: NodeSourceFile['format'],
+): ValidationResult {
   if (raw.trim().length === 0) {
     return { ok: false, error: 'Source file is empty.' };
   }
   try {
     if (format === 'json') {
       JSON.parse(raw);
-    } else {
+    } else if (format === 'yaml') {
       // `yaml.parse` throws on malformed YAML; a valid scalar/null is allowed.
       yaml.parse(raw);
     }
+    // `markdown` (and any future text format): non-empty content is valid.
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
