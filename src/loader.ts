@@ -13,6 +13,7 @@ import type { KBGraph, KBConfig } from '../types';
 import { ProviderRegistry } from './providers';
 import { FilesProvider } from './providers/files-provider';
 import { AuthoredProvider } from './providers/authored-provider';
+import { AuthoredRichMarkdownProvider } from './providers/authored-rich-markdown-provider';
 import { WorkProvider } from './providers/work-provider';
 import { PersonProvider } from './providers/person-provider';
 import { StructuralProvider } from './providers/structural-provider';
@@ -36,6 +37,13 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
       data.nodemapDirs,
       data.listFiles,
     ));
+  }
+
+  // Authored docs opting into rich-Markdown (`display: rich-markdown`) are
+  // ingested into rich-md nodes (data.richMarkdown.blocks) by the published
+  // provider's pure `./lib`; AuthoredProvider skips these (no double-emit).
+  if (Object.keys(data.authoredContent).length > 0) {
+    registry.register(new AuthoredRichMarkdownProvider(data.authoredContent));
   }
 
   const workPRs = data.pullRequests.map(pr => ({
