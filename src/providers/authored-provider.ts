@@ -7,6 +7,7 @@ import type { KBConfig, KBNode } from '../../types';
 import { parseMarkdownFile } from '../parser';
 import { loadNodeMap } from '../nodemap';
 import { assignIdentity } from '../identity';
+import { isRichAuthoredMarkdown } from './rich-markdown/detect';
 
 export class AuthoredProvider implements GraphProvider {
   id = 'authored';
@@ -38,6 +39,10 @@ export class AuthoredProvider implements GraphProvider {
 
     // 1. Parse each authored content markdown file
     for (const [path, raw] of Object.entries(this.authoredContent)) {
+      // Docs opting into rich-Markdown (`display: rich-markdown`) are owned by
+      // AuthoredRichMarkdownProvider; skip them here so a doc is never emitted
+      // twice (this provider keeps the plain prose / `urn:content:` path).
+      if (isRichAuthoredMarkdown(raw)) continue;
       try {
         const node = parseMarkdownFile(path, raw);
         node.provider = 'authored';
