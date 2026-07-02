@@ -5,7 +5,19 @@ import {
 } from '../../types';
 import type { RepoData, RepoSource } from '../sources/repo-data';
 
-export const GRAPH_STORE_DERIVATION_VERSION = 'template-graph-derivation-v1';
+// v3: #452 — the shared defensive markdown renderer switched from escape-all to
+// an allowlist HTML sanitizer (marked → sanitize-html). Legitimate embedded HTML
+// (<details>/<summary>, <img> badges, <table>, <picture>/<source>) now renders
+// as live safe markup instead of escaped text, and entity-encoded scheme colons
+// are normalized-then-defanged. This changes derived `content` HTML for any node
+// whose source carried raw HTML, so persisted v2 provider results (pre-allowlist
+// HTML) would replay stale renders and must miss.
+// v2: #445/#446 wave — identity unification changed content-model/rich-md/
+// external node id+identity shapes, the shared defensive markdown renderer
+// changed derived content HTML for the same inputs, and authored docs now
+// derive an `access` label from frontmatter. Persisted v1 provider results
+// would replay pre-sanitizer HTML and unlabeled nodes, so they must miss.
+export const GRAPH_STORE_DERIVATION_VERSION = 'template-graph-derivation-v3';
 export const GRAPH_STORE_PROVIDER_ID = 'provider-pipeline';
 
 export function buildProviderResultCacheKey(
