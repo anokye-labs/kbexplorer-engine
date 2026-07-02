@@ -6,7 +6,7 @@
  * I/O callbacks so it works with both GitHub API and local filesystem.
  */
 
-import { marked } from 'marked';
+import { renderSafeMarkdown } from './safe-markdown';
 import yaml from 'yaml';
 import type {
   NodeMapEntry,
@@ -42,7 +42,7 @@ function escapeHtml(s: string): string {
 
 function renderHtml(content: string, filePath: string): string {
   if (isMarkdown(filePath)) {
-    return marked.parse(content, { async: false }) as string;
+    return renderSafeMarkdown(content);
   }
   return `<pre><code>${escapeHtml(content)}</code></pre>`;
 }
@@ -177,7 +177,7 @@ async function processMerge(
   if (parts.length === 0) return [];
 
   const merged = parts.join('\n\n---\n\n');
-  const html = marked.parse(merged, { async: false }) as string;
+  const html = renderSafeMarkdown(merged);
   const display: DisplayMode = entry.display ?? 'file-list';
 
   return [
@@ -253,7 +253,7 @@ async function processDirectory(
 
   const title = entry.title ?? dir;
   const rawContent = `## ${title}\n\n${lines.join('\n')}`;
-  const html = marked.parse(rawContent, { async: false }) as string;
+  const html = renderSafeMarkdown(rawContent);
 
   return [
     {

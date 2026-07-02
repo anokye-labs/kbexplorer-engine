@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildGraph, getNodeDegrees, getHubNodeId, getEdgeDescription } from '../graph';
 import type { KBNode, KBGraph, Cluster, Connection } from '../../types';
 import { EDGE_TYPE_WEIGHTS, trimGraphToLimits } from '../../types';
@@ -453,6 +453,53 @@ describe('trimGraphToLimits', () => {
       for (const rid of related) {
         expect(nodeIds.has(rid)).toBe(true);
       }
+    }
+  });
+});
+
+// ── cross-provider id collision warning (AF-019 cheap slice, #445) ──
+
+describe('buildGraph — cross-provider id collision warning', () => {
+  it('warns when two providers produce the same node id', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      buildGraph(
+        [
+          makeNode('readme', { provider: 'work' }),
+          makeNode('readme', { provider: 'structural' }),
+        ],
+        clusters,
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0][0]);
+      expect(message).toContain('cross-provider id collision');
+      expect(message).toContain('"readme"');
+      expect(message).toContain('"work"');
+      expect(message).toContain('"structural"');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('does not warn for unique ids or same-provider duplicates', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      buildGraph(
+        [
+          makeNode('a', { provider: 'work' }),
+          makeNode('b', { provider: 'structural' }),
+          // same-provider duplicate: out of scope for the cross-provider slice
+          makeNode('c', { provider: 'work' }),
+          makeNode('c', { provider: 'work' }),
+          // both unlabeled: same '(none)' bucket, not cross-provider
+          makeNode('d'),
+          makeNode('d'),
+        ],
+        clusters,
+      );
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
     }
   });
 });

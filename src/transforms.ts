@@ -16,7 +16,7 @@
  * from the source) and hand it to the orchestrator — they contain no
  * post-processing logic themselves.
  */
-import { marked } from 'marked';
+import { renderSafeMarkdown } from './safe-markdown';
 import type { KBNode } from '../types';
 import { extractIssueRefs, splitIntoSections } from './parser';
 
@@ -102,7 +102,7 @@ export const readmeTransform: GraphTransform = {
       readmeConnectedTo.add(target);
     }
 
-    const html = marked.parse(readme, { async: false }) as string;
+    const html = renderSafeMarkdown(readme);
     nodes.push({
       id: 'readme', title: 'README', cluster: 'docs',
       content: html, rawContent: readme, emoji: 'Document',

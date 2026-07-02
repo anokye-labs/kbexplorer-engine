@@ -40,7 +40,8 @@ function nodeWith(sourceFile?: NodeSourceFile): KBNode {
 describe('source-edit — resolving the source-of-truth file (F5 / #152)', () => {
   it('the content-model builder attaches the underlying file path + raw to entity nodes', () => {
     const graph = buildContentModel(loadFixtureSource());
-    const ada = graph.nodes.find(n => n.id === 'kg://xbox.com/people/ada');
+    // Node ids are local keys since #445; the URN rides on `identity`.
+    const ada = graph.nodes.find(n => n.id === 'xbox.com/people/ada');
     expect(ada?.sourceFile).toBeDefined();
     // path is repo-relative (content-model root + entity path), never the URN
     expect(ada?.sourceFile?.path).toBe('content-model/people/ada.yaml');
@@ -57,7 +58,7 @@ describe('source-edit — resolving the source-of-truth file (F5 / #152)', () =>
 
   it('unresolved stub nodes carry no source file (nothing to edit)', () => {
     const graph = buildContentModel(loadFixtureSource());
-    const cto = graph.nodes.find(n => n.id === 'kg://xbox.com/people/cto');
+    const cto = graph.nodes.find(n => n.id === 'xbox.com/people/cto');
     expect(cto?.data?.unresolved).toBe(true);
     expect(cto?.sourceFile).toBeUndefined();
     expect(canEditSource(cto as KBNode)).toBe(false);

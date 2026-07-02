@@ -45,6 +45,38 @@ describe('assignIdentity', () => {
   });
 });
 
+// ── external identity is collision-free (injective urnBody) ────
+//
+// `urn:external:<provider>:<id>` was built by naive string concat
+// (`${provider}:${id}`), which is NOT injective: two independently-configured
+// providers can mint the same identity when a provider or id contains the `:`
+// separator. The cross-provider merge machinery would then silently conflate
+// two distinct real-world entities. urnBody percent-encodes each part so the
+// composition is injective.
+describe('assignIdentity — external identities cannot collide', () => {
+  const external = (id: string, provider: string): KBNode =>
+    makeNode(id, { type: 'external', provider });
+
+  it('keeps distinct (provider, id) pairs distinct even when a part contains ":"', () => {
+    // Naive `${provider}:${id}` collapsed BOTH of these to `urn:external:a:b:c`.
+    const collideA = assignIdentity(external('b:c', 'a')); // provider 'a',   id 'b:c'
+    const collideB = assignIdentity(external('c', 'a:b')); // provider 'a:b', id 'c'
+
+    expect(collideA).toBe('urn:external:a:b%3Ac');
+    expect(collideB).toBe('urn:external:a%3Ab:c');
+    expect(collideA).not.toBe(collideB);
+  });
+
+  it('leaves a normal (provider, id) pair byte-identical (no churn)', () => {
+    expect(assignIdentity(external('wiki-knowledge-graph', 'wikipedia-reference'))).toBe(
+      'urn:external:wikipedia-reference:wiki-knowledge-graph',
+    );
+    expect(assignIdentity(external('org-ceo', 'orgchart-team'))).toBe(
+      'urn:external:orgchart-team:org-ceo',
+    );
+  });
+});
+
 // ── shareIdentity ──────────────────────────────────────────
 
 describe('shareIdentity', () => {
