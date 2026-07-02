@@ -64,13 +64,18 @@ describe('AuthoredRichMarkdownProvider', () => {
     expect(isRichMarkdownNode(node)).toBe(true);
   });
 
-  it('mints a buildAddress identity (opaque core address)', async () => {
+  it('emits a distinct local id + canonical content identity (#445 / AF-003)', async () => {
     const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
     const { nodes } = await provider.resolve(config, []);
 
-    // core v0.1.0 buildAddress → `<scheme>://…` (default scheme `kg`).
-    expect(nodes[0].id).toMatch(/^[a-z]+:\/\//);
-    expect(nodes[0].identity).toBe(nodes[0].id);
+    // `id` is the stable local slug (the frontmatter id), never an address…
+    expect(nodes[0].id).toBe('platform');
+    expect(nodes[0].id).not.toMatch(/^[a-z]+:\/\//);
+    // …and `identity` is the template's canonical content URN — the SAME value
+    // the doc would carry as plain authored content (assignIdentity), so the
+    // two providers' representations of one doc share a merge key.
+    expect(nodes[0].identity).toBe('urn:content:platform');
+    expect(nodes[0].identity).not.toBe(nodes[0].id);
   });
 
   it('honors the frontmatter cluster (the pure lib ignores it)', async () => {

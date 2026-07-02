@@ -17,6 +17,7 @@
  * the kind it stands in for (e.g. `cell` → `squad`) before any resolution.
  */
 import yaml from 'yaml';
+import { stripScheme } from '@anokye-labs/kbexplorer-core';
 import type {
   ContentModelSchema,
   ContentModelSource,
@@ -271,6 +272,24 @@ export function readContentModelSchema(
 /** Whether a kind is org-scoped (carries an `/{org}` URN segment). */
 export function isOrgScoped(schema: ContentModelSchema, kind: string): boolean {
   return schema.conventions.kinds[kind]?.orgScoped === true;
+}
+
+/**
+ * Derive the local/display node id for a canonical content-model URN.
+ *
+ * Content-model nodes carry TWO distinct identifiers (#445 / AF-003):
+ *  - `identity` — the canonical URN minted by {@link buildUrn} from the JSON-LD
+ *    context (e.g. `kg://xbox.com/people/ada`), the cross-provider merge key;
+ *  - `id` — this provider-local display key, derived deterministically from the
+ *    URN by stripping its `<scheme>://` prefix (e.g. `xbox.com/people/ada`).
+ *
+ * The mapping is a pure 1:1 function of the URN, so any consumer (viewers,
+ * link resolution) can recover a node's graph id from a resolved URN without
+ * access to the node set. Delegates to core's `stripScheme` (idempotent when
+ * no scheme is present).
+ */
+export function urnLocalId(urn: string): string {
+  return stripScheme(urn);
 }
 
 /**

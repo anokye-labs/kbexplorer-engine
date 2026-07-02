@@ -213,6 +213,46 @@ describe('PersonProvider', () => {
     });
   });
 
+  describe('linkedRefs — core v0.3.0 identity/link substrate (#445 / AF-013)', () => {
+    it('minted person nodes carry a linkedRef to the canonical person address', async () => {
+      const issue = makeIssue({ number: 1, assignees: [{ login: 'testlogin' }] });
+      const provider = new PersonProvider([issue], []);
+      const { nodes } = await provider.resolve(config, []);
+
+      const node = nodes.find(n => n.id === 'person-testlogin')!;
+      // The href is core's buildPersonAddress(login) (`kg://<alias>`) — the
+      // identity-tier locator kbexplorer-cli's edge-mint resolves linkedRefs
+      // against, which is what makes template person nodes visible to cli's
+      // identity-linking at all.
+      expect(node.linkedRefs).toEqual([
+        { kind: 'github', href: 'kg://testlogin', resourceKind: 'person' },
+      ]);
+      // The legacy source witness stays for back-compat.
+      expect(node.source).toEqual({ type: 'person', login: 'testlogin', linked: false });
+    });
+
+    it('records the GitHub witness as a linkedRef on a matched descriptor (general form of linked: true)', async () => {
+      const issue = makeIssue({ number: 3, assignees: [{ login: 'aokonkwo' }] });
+      const descriptor = makeDescriptor('aokonkwo', 'ada');
+      const provider = new PersonProvider([issue], []);
+      await provider.resolve(config, [descriptor]);
+
+      expect(descriptor.linkedRefs).toEqual([
+        { kind: 'github', href: 'urn:person:aokonkwo', resourceKind: 'person' },
+      ]);
+    });
+
+    it('does not duplicate the descriptor linkedRef when resolve runs twice', async () => {
+      const issue = makeIssue({ number: 3, assignees: [{ login: 'aokonkwo' }] });
+      const descriptor = makeDescriptor('aokonkwo', 'ada');
+      const provider = new PersonProvider([issue], []);
+      await provider.resolve(config, [descriptor]);
+      await provider.resolve(config, [descriptor]);
+
+      expect(descriptor.linkedRefs).toHaveLength(1);
+    });
+  });
+
   describe('edges', () => {
     it('emits a "assigned-to" edge from person to assigned issue', async () => {
       const issue = makeIssue({ number: 10, assignees: [{ login: 'worker' }] });

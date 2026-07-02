@@ -19,6 +19,7 @@ export {
   lifecycleBand,
   getConvention,
   isOrgScoped,
+  urnLocalId,
 } from './schema-reader';
 export {
   CONTENT_MODEL_PROVIDER,

@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { buildContentModel } from '../builder';
+import { urnLocalId } from '../schema-reader';
 import type { KBEdge, KBNode } from '../../../types';
 import { loadFixtureSource } from './fixtures';
 
+// Canonical identity URNs (node.identity). Since #445 / AF-003 the node `id`
+// is the DISTINCT local key `urnLocalId(urn)` (the URN sans `kg://`), and
+// edges/connections reference nodes by that local id.
 const ADA = 'kg://xbox.com/people/ada';
 const BEN = 'kg://xbox.com/people/ben';
 const CTO = 'kg://xbox.com/people/cto';
@@ -13,19 +17,22 @@ const PRIO = 'kg://xbox.com/priorities/p0-latency';
 const MISSION = 'kg://xbox.com/missions/personalization/q1-uplift';
 const CYCLE = 'kg://xbox.com/cycles/cycle-2';
 
+const lid = urnLocalId;
+
 const source = loadFixtureSource();
 const graph = buildContentModel(source);
 
 const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
-const node = (id: string): KBNode => {
-  const n = nodeMap.get(id);
-  if (!n) throw new Error(`node not found: ${id}`);
+// Look up a node by its canonical URN (via the deterministic local-id mapping).
+const node = (urn: string): KBNode => {
+  const n = nodeMap.get(lid(urn));
+  if (!n) throw new Error(`node not found: ${urn}`);
   return n;
 };
 const hasEdge = (from: string, to: string, relation: string): boolean =>
-  graph.edges.some((e: KBEdge) => e.from === from && e.to === to && e.relation === relation);
+  graph.edges.some((e: KBEdge) => e.from === lid(from) && e.to === lid(to) && e.relation === relation);
 const conn = (from: string, to: string, relation: string): boolean =>
-  node(from).connections.some(c => c.to === to && c.relation === relation);
+  node(from).connections.some(c => c.to === lid(to) && c.relation === relation);
 
 describe('content-model builder — node emission (T2.2 / #161)', () => {
   it('emits a JSON-LD node per entity (kind from @type, not the path)', () => {
@@ -37,6 +44,15 @@ describe('content-model builder — node emission (T2.2 / #161)', () => {
     expect(ada.source).toEqual({ type: 'structured', entityType: 'person', ref: 'ada' });
     expect(ada.title).toBe('Ada Okonkwo');
     expect(ada.provider).toBe('content-model');
+  });
+
+  it('emits a local display id DISTINCT from the canonical identity URN (#445 / AF-003)', () => {
+    const ada = node(ADA);
+    expect(ada.id).toBe('xbox.com/people/ada');
+    expect(ada.identity).toBe(ADA);
+    expect(ada.id).not.toBe(ada.identity);
+    // The mapping is deterministic and recoverable from the URN alone.
+    expect(ada.id).toBe(urnLocalId(ADA));
   });
 
   it('builds a JSON-LD envelope whose @id reuses the identity URN and @type is the kind', () => {
@@ -85,15 +101,15 @@ describe('content-model builder — node emission (T2.2 / #161)', () => {
 
 describe('content-model builder — org detection (T2.2 / #161)', () => {
   it('places default-org entities flat and still carries the org segment in the URN', () => {
-    expect(nodeMap.has(GAME)).toBe(true); // squads/game-assist.yaml → personalization (default)
+    expect(nodeMap.has(lid(GAME))).toBe(true); // squads/game-assist.yaml → personalization (default)
   });
   it('places non-default-org entities in a per-org subdir reflected in the URN', () => {
-    expect(nodeMap.has(STREAM)).toBe(true); // squads/xcloud/streaming.yaml → xcloud
+    expect(nodeMap.has(lid(STREAM))).toBe(true); // squads/xcloud/streaming.yaml → xcloud
   });
   it('omits the org segment for authority-scoped kinds', () => {
-    expect(nodeMap.has(ADA)).toBe(true);
-    expect(nodeMap.has(PRIO)).toBe(true);
-    expect(nodeMap.has(CYCLE)).toBe(true);
+    expect(nodeMap.has(lid(ADA))).toBe(true);
+    expect(nodeMap.has(lid(PRIO))).toBe(true);
+    expect(nodeMap.has(lid(CYCLE))).toBe(true);
   });
 });
 
@@ -137,7 +153,7 @@ describe('content-model builder — FK edge resolution (T2.3 / #162)', () => {
 describe('content-model builder — derived + deprecated (T2.3 / #162)', () => {
   it('computes a derived shared-target edge (squads sharing a workstream), deduped', () => {
     const derived = graph.edges.filter(e => e.relation === 'derived'
-      && [e.from, e.to].includes(GAME) && [e.from, e.to].includes(STREAM));
+      && [e.from, e.to].includes(lid(GAME)) && [e.from, e.to].includes(lid(STREAM)));
     expect(derived.length).toBe(1); // undirected: stored once
   });
 

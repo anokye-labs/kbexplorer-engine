@@ -39,8 +39,14 @@ content-model/
 - Org-scoped kinds resolve to `{base}{org}/{id}`; authority-scoped kinds to
   `{base}{id}`. Org is detected from the file's location (flat file → default org;
   nested under `<org>/` → that org).
-- `node.id === node.identity === <URN>`; `buildJsonLd()` writes the reserved keys
-  (`@context`/`@id`/`@type`) last so entity `data` can never override them.
+- Every node carries TWO distinct identifiers (#445 / AF-003 — they were
+  collapsed to a single value until that fix):
+  - `node.identity === <URN>` — the canonical, schema-minted address (also the
+    JSON-LD `@id`), the cross-provider merge key;
+  - `node.id === urnLocalId(<URN>)` — the provider-local graph/display key (the
+    URN with its `<scheme>://` prefix stripped, e.g. `xbox.com/people/ada`).
+- `buildJsonLd()` writes the reserved keys (`@context`/`@id`/`@type`) last so
+  entity `data` can never override them.
 
 ## Cross-repo vocabulary / synonym layer (#153)
 

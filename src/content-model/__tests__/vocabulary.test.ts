@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildContentModel, type ContentModelGraph } from '../builder';
-import { readContentModelSchema, canonicalKind } from '../schema-reader';
+import { readContentModelSchema, canonicalKind, urnLocalId } from '../schema-reader';
 import type { ContentModelSource, Vocabulary } from '../types';
 import { loadFixtureSource } from './fixtures';
 import { registerContentModelTypes } from '../register';
@@ -55,16 +55,20 @@ function withFiles(extra: Record<string, string>): ContentModelSource {
   return { root: base.root, files: { ...base.files, ...extra } };
 }
 
-const nodeOf = (graph: { nodes: KBNode[] }, id: string): KBNode => {
-  const n = graph.nodes.find(x => x.id === id);
-  if (!n) throw new Error(`node not found: ${id}`);
+// Node `id`s are the LOCAL keys (`urnLocalId(urn)`) since #445 / AF-003;
+// helpers convert from the canonical URN constants above.
+const lid = urnLocalId;
+
+const nodeOf = (graph: { nodes: KBNode[] }, urn: string): KBNode => {
+  const n = graph.nodes.find(x => x.id === lid(urn));
+  if (!n) throw new Error(`node not found: ${urn}`);
   return n;
 };
 
 /** A derived `shared-target` edge is undirected (stored once on the lower URN). */
 const hasDerivedBetween = (graph: Pick<ContentModelGraph, 'edges'>, a: string, b: string): boolean =>
   graph.edges.some(e => e.relation === 'derived'
-    && ((e.from === a && e.to === b) || (e.from === b && e.to === a)));
+    && ((e.from === lid(a) && e.to === lid(b)) || (e.from === lid(b) && e.to === lid(a))));
 
 describe('cross-repo vocabulary — alias canonicalization (#153)', () => {
   const graph = buildContentModel(
@@ -76,8 +80,10 @@ describe('cross-repo vocabulary — alias canonicalization (#153)', () => {
     expect(cell.entityType).toBe('squad');
     expect(cell.cluster).toBe('squad');
     expect(cell.jsonld?.['@type']).toBe('squad');
-    // URN base resolved via the canonical kind's CURIE prefix (org-scoped squad).
-    expect(cell.id).toBe(CELL);
+    // URN base resolved via the canonical kind's CURIE prefix (org-scoped squad);
+    // the canonical URN is the identity, the node id is its local key (#445).
+    expect(cell.identity).toBe(CELL);
+    expect(cell.id).toBe(lid(CELL));
   });
 
   it('routes the aliased node to the canonical kind\'s bespoke viewer (SquadView)', () => {

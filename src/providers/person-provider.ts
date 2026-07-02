@@ -15,10 +15,11 @@
  *      person → team      (when a content-model team descriptor lists the login
  *                          in its `members` array — future: via existing data)
  */
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../safe-markdown';
+import { buildPersonAddress, type SourceRef } from '@anokye-labs/kbexplorer-core';
 import type { GraphProvider, ProviderResult } from '../providers';
 import type { KBConfig, KBNode, KBEdge, Connection } from '../../types';
-import { assignIdentity } from '../identity';
+import { assignIdentity, urnIdentity } from '../identity';
 import type { GHIssue } from '../../api';
 
 type WorkPullRequestForPerson = {
@@ -154,9 +155,26 @@ export class PersonProvider implements GraphProvider {
       for (const pr of d.authoredPRs) addConn(`pr-${pr.number}`, 'authored');
 
       if (descriptor) {
-        // Descriptor exists: enrich it with connections to active items AND
-        // the active-work data bag PersonView renders its "Active work"
-        // section from (data.activeIssues / data.activePRs).
+        // Descriptor exists: record the GitHub-person witness on it as a
+        // `linkedRef` — the core v0.3.0 general form of the legacy
+        // `{ type: 'person', login, linked: true }` boolean flip (see
+        // KBNode.linkedRefs). The href is the template's canonical URN for the
+        // GitHub-derived person, so kbexplorer-cli's identity-linking
+        // (edge-mint's tiered identity → id → sourceRef resolution) can join
+        // the descriptor to a work-derived person representation wherever one
+        // exists. Pointers only — no merging is implied.
+        const witness: SourceRef = {
+          kind: 'github',
+          href: urnIdentity('person', d.login),
+          resourceKind: 'person',
+        };
+        const refs = descriptor.linkedRefs ?? [];
+        if (!refs.some(r => r.href === witness.href)) {
+          descriptor.linkedRefs = [...refs, witness];
+        }
+        // …and enrich it with connections to active items AND the active-work
+        // data bag PersonView renders its "Active work" section from
+        // (data.activeIssues / data.activePRs).
         const uniqueIssuesD = [
           ...d.assignedIssues,
           ...d.authoredIssues.filter(i => !d.assignedIssues.some(a => a.number === i.number)),
@@ -225,7 +243,7 @@ export class PersonProvider implements GraphProvider {
         '',
         ...allLines,
       ].join('\n');
-      const content = marked.parse(rawContent, { async: false }) as string;
+      const content = renderSafeMarkdown(rawContent);
 
       const nodeId = `person-${d.login}`;
       const personNode: KBNode = {
@@ -241,6 +259,19 @@ export class PersonProvider implements GraphProvider {
         provider: 'person',
         entityType: 'person',
         derived: true,
+        // Core v0.3.0 identity/link substrate (#445 / AF-013): alongside the
+        // legacy source witness, point at the person's canonical, host-neutral
+        // address (`buildPersonAddress(login)` — the alias-based `kg://` form
+        // cli/directory providers mint). kbexplorer-cli's edge-mint resolves
+        // linkedRef hrefs against node identities, so this is what makes
+        // template person nodes visible to its identity-linking at all.
+        linkedRefs: [
+          {
+            kind: 'github',
+            href: buildPersonAddress(d.login),
+            resourceKind: 'person',
+          },
+        ],
         data: {
           login: d.login,
           activeIssues: uniqueIssues.map(i => ({ number: i.number, title: i.title })),

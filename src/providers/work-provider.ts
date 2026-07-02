@@ -4,7 +4,7 @@
  * Produces nodes for GitHub issues, pull requests, and commits, tagging each
  * with `provider: 'work'` and a canonical identity URN.
  */
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../safe-markdown';
 import type { GraphProvider, ProviderResult } from '../providers';
 import type { Connection, KBConfig, KBNode } from '../../types';
 import { issueToNode, extractIssueRefs } from '../parser';
@@ -123,7 +123,7 @@ export class WorkProvider implements GraphProvider {
       ].filter(Boolean).join('\n\n');
 
       const fullContent = `${metaLines}\n\n---\n\n${remappedBody}`;
-      const html = marked.parse(fullContent, { async: false }) as string;
+      const html = renderSafeMarkdown(fullContent);
 
       // Build connections — filter out phantom #NNN refs to nonexistent
       // issues/PRs. Most #NNN in PR bodies are issues; fall back to PR if it's
@@ -226,7 +226,7 @@ export class WorkProvider implements GraphProvider {
       }
 
       const commitContent = `## Recent Commits\n\n${this.commits.length} commits · ${this.commits[0]?.commit.author.name ?? 'unknown'}\n\n${commitList}`;
-      const commitHtml = marked.parse(commitContent, { async: false }) as string;
+      const commitHtml = renderSafeMarkdown(commitContent);
       nodes.push({
         id: 'commits',
         title: 'Recent Commits',
@@ -260,7 +260,7 @@ export class WorkProvider implements GraphProvider {
         `\n\n[View on GitHub ↗](${meta.html_url})`,
       ].join('');
 
-      const repoHtml = marked.parse(repoContent, { async: false }) as string;
+      const repoHtml = renderSafeMarkdown(repoContent);
       const repoConns: Connection[] = [
         { to: 'readme', description: 'README' },
         { to: `branch-${meta.default_branch}`, description: `Default branch` },
@@ -294,7 +294,7 @@ export class WorkProvider implements GraphProvider {
         protectedBadge ? ` · ${protectedBadge}` : '',
       ].join('');
 
-      const branchHtml = marked.parse(branchContent, { async: false }) as string;
+      const branchHtml = renderSafeMarkdown(branchContent);
       // Every branch belongs to the repository — not just the default branch.
       // The previous behavior (default-only) left ~18 branches as orphans that
       // got force-attached to whatever the highest-degree node happened to be.
@@ -345,7 +345,7 @@ export class WorkProvider implements GraphProvider {
       ].filter(Boolean).join('\n\n');
 
       const fullContent = `${metaLines}\n\n---\n\n${body}`;
-      const html = marked.parse(fullContent, { async: false }) as string;
+      const html = renderSafeMarkdown(fullContent);
 
       // Connections: release → repo node
       const connections: Connection[] = [];

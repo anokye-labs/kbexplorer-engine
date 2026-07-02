@@ -12,11 +12,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildContentModel } from '../builder';
+import { urnLocalId } from '../schema-reader';
 import type { KBEdge, KBNode } from '../../../types';
 import { loadFixtureSource } from './fixtures';
 import type { ContentModelSource } from '../types';
 
 // ── URN constants ──────────────────────────────────────────────────────────────
+// Canonical identity URNs (node.identity). Since #445 / AF-003 the node `id` is
+// the DISTINCT local key `urnLocalId(urn)`; helpers below convert.
 
 const TEAM = 'kg://xbox.com/teams/personalization/graph-platform';
 const WS   = 'kg://xbox.com/workstreams/personalization/personalization-discovery';
@@ -33,20 +36,23 @@ const source = loadFixtureSource();
 /** Build graph once to share across tests (fixture is static). */
 const graph = buildContentModel(source);
 
+const lid = urnLocalId;
+
 const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
 
-function node(id: string): KBNode {
-  const n = nodeMap.get(id);
-  if (!n) throw new Error(`node not found: ${id}`);
+/** Look up a node by its canonical URN (via the deterministic local-id mapping). */
+function node(urn: string): KBNode {
+  const n = nodeMap.get(lid(urn));
+  if (!n) throw new Error(`node not found: ${urn}`);
   return n;
 }
 
 function hasEdge(from: string, to: string, relation: string): boolean {
-  return graph.edges.some((e: KBEdge) => e.from === from && e.to === to && e.relation === relation);
+  return graph.edges.some((e: KBEdge) => e.from === lid(from) && e.to === lid(to) && e.relation === relation);
 }
 
-function hasConn(fromId: string, toId: string, relation: string): boolean {
-  return node(fromId).connections.some(c => c.to === toId && c.relation === relation);
+function hasConn(fromUrn: string, toUrn: string, relation: string): boolean {
+  return node(fromUrn).connections.some(c => c.to === lid(toUrn) && c.relation === relation);
 }
 
 /** Inline helper: extend the fixture source with extra files. */
@@ -179,7 +185,7 @@ describe('work-graph vocabulary — dangling reference validation (#233)', () =>
     });
     const g = buildContentModel(src);
     const teamUrn = 'kg://xbox.com/teams/personalization/nonexistent-team';
-    const stub = g.nodes.find(n => n.id === teamUrn);
+    const stub = g.nodes.find(n => n.id === lid(teamUrn));
     expect(stub?.data?.unresolved).toBe(true);
     expect(g.diagnostics.some(d => d.code === 'unresolved-ref' && d.ref === teamUrn)).toBe(true);
   });
@@ -197,7 +203,7 @@ describe('work-graph vocabulary — dangling reference validation (#233)', () =>
     });
     const g = buildContentModel(src);
     const sorUrn = 'kg://xbox.com/systems-of-record/nonexistent-sor';
-    const stub = g.nodes.find(n => n.id === sorUrn);
+    const stub = g.nodes.find(n => n.id === lid(sorUrn));
     expect(stub?.data?.unresolved).toBe(true);
     expect(g.diagnostics.some(d => d.code === 'unresolved-ref' && d.ref === sorUrn)).toBe(true);
   });
@@ -213,7 +219,7 @@ describe('work-graph vocabulary — dangling reference validation (#233)', () =>
     });
     const g = buildContentModel(src);
     const ghostTeamUrn = 'kg://xbox.com/teams/personalization/ghost-team';
-    const gt = g.nodes.find(n => n.id === ghostTeamUrn);
+    const gt = g.nodes.find(n => n.id === lid(ghostTeamUrn));
     expect(gt).toBeDefined();
     expect(g.diagnostics.some(d => d.code === 'unresolved-ref')).toBe(true);
   });
@@ -235,7 +241,7 @@ describe('work-graph vocabulary — unknown kind validation (#233)', () => {
 
 describe('work-graph vocabulary — org-scoping (#233)', () => {
   it('places default-org team flat (still carries org in URN)', () => {
-    expect(nodeMap.has(TEAM)).toBe(true);
+    expect(nodeMap.has(lid(TEAM))).toBe(true);
     expect(TEAM).toContain('/personalization/');
   });
 
@@ -249,7 +255,7 @@ describe('work-graph vocabulary — org-scoping (#233)', () => {
     });
     const g = buildContentModel(src);
     const xTeam = 'kg://xbox.com/teams/xcloud/cloud-ops';
-    expect(g.nodes.some(n => n.id === xTeam)).toBe(true);
+    expect(g.nodes.some(n => n.id === lid(xTeam))).toBe(true);
   });
 
   it('system-of-record is authority-scoped (no org in URN)', () => {
@@ -273,7 +279,7 @@ describe('work-graph vocabulary — inline object FK entries (#233 review)', () 
     });
     const g = buildContentModel(src);
     const ws = 'kg://xbox.com/workstreams/personalization/obj-sor';
-    expect(g.edges.some(e => e.from === ws && e.to === SOR && e.relation === 'tracked-in')).toBe(true);
+    expect(g.edges.some(e => e.from === lid(ws) && e.to === lid(SOR) && e.relation === 'tracked-in')).toBe(true);
     expect(g.nodes.some(n => n.id.includes('[object Object]'))).toBe(false);
   });
 
@@ -316,8 +322,8 @@ describe('work-graph vocabulary — team alias identity (#233 review)', () => {
     const byLeadWs = 'kg://xbox.com/workstreams/personalization/by-lead';
     const aliasTarget = 'kg://xbox.com/teams/personalization/aokonkwo';
     // "aokonkwo" is not a team id → stub + unresolved-ref, NOT a silent hit on a team-by-lead alias
-    expect(g.nodes.find(n => n.id === aliasTarget)?.data?.unresolved).toBe(true);
-    expect(g.edges.some(e => e.from === byLeadWs && e.to === aliasTarget)).toBe(true);
+    expect(g.nodes.find(n => n.id === lid(aliasTarget))?.data?.unresolved).toBe(true);
+    expect(g.edges.some(e => e.from === lid(byLeadWs) && e.to === lid(aliasTarget))).toBe(true);
     expect(g.diagnostics.some(d => d.code === 'unresolved-ref' && d.ref === aliasTarget)).toBe(true);
   });
 });

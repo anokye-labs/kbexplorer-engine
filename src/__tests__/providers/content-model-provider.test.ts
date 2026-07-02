@@ -21,7 +21,10 @@ describe('ContentModelProvider (T2.4 / #163)', () => {
     expect(nodes.length).toBeGreaterThan(0);
     // The orchestrator ignores provider edges — relationships ride on connections.
     expect(edges).toEqual([]);
-    const squad = nodes.find(n => n.id === 'kg://xbox.com/squads/personalization/game-assist');
+    // Node ids are the LOCAL keys since #445 / AF-003; the canonical URN is
+    // carried as `identity`.
+    const squad = nodes.find(n => n.id === 'xbox.com/squads/personalization/game-assist');
+    expect(squad?.identity).toBe('kg://xbox.com/squads/personalization/game-assist');
     expect(squad?.connections.some(c => c.relation === 'staffs')).toBe(true);
     expect(squad?.entityType).toBe('squad');
     expect(squad?.display).toBe('entity');

@@ -15,6 +15,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildContentModel } from '../builder';
+import { urnLocalId } from '../schema-reader';
 import type { KBEdge } from '../../../types';
 import { loadFixtureSource } from './fixtures';
 import type { ContentModelSource } from '../types';
@@ -74,20 +75,25 @@ const source = withFiles({
 });
 
 const graph = buildContentModel(source);
+// Nodes are keyed by their LOCAL id (`urnLocalId(urn)`), distinct from the
+// canonical identity URN since #445 / AF-003; helpers convert from the URN
+// constants above.
+const lid = urnLocalId;
 const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+const byUrn = (urn: string) => nodeMap.get(lid(urn));
 
 function hasEdge(from: string, to: string, relation: string): boolean {
-  return graph.edges.some((e: KBEdge) => e.from === from && e.to === to && e.relation === relation);
+  return graph.edges.some((e: KBEdge) => e.from === lid(from) && e.to === lid(to) && e.relation === relation);
 }
-function hasConn(fromId: string, toId: string, relation: string): boolean {
-  return nodeMap.get(fromId)?.connections.some(c => c.to === toId && c.relation === relation) ?? false;
+function hasConn(fromUrn: string, toUrn: string, relation: string): boolean {
+  return byUrn(fromUrn)?.connections.some(c => c.to === lid(toUrn) && c.relation === relation) ?? false;
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('service kind (#275)', () => {
   it('emits a service node with @type=service, cluster=service, display=entity', () => {
-    const s = nodeMap.get(SERVICE);
+    const s = byUrn(SERVICE);
     expect(s).toBeDefined();
     expect(s!.entityType).toBe('service');
     expect(s!.cluster).toBe('service');
@@ -100,18 +106,18 @@ describe('service kind (#275)', () => {
   });
 
   it('gets the durable lifecycle band', () => {
-    expect(nodeMap.get(SERVICE)!.jsonld?.lifecycle).toBe('durable');
+    expect(byUrn(SERVICE)!.jsonld?.lifecycle).toBe('durable');
   });
 
   it('keeps catalog identity fields verbatim in data', () => {
-    const d = nodeMap.get(SERVICE)!.data as Record<string, unknown>;
+    const d = byUrn(SERVICE)!.data as Record<string, unknown>;
     expect(d.serviceTreeId).toBe('7e4a1c20-91a2-4d3e-9f0b-2c6d8e1a4b55');
     expect(d.catalogInfoPath).toBe('services/kb-explorer-web/catalog-info.yaml');
     expect(d.repoPath).toBe('anokye-labs/kbexplorer-template');
   });
 
   it('attaches sourceFile so the F5 editor affordance lights up', () => {
-    const s = nodeMap.get(SERVICE)!;
+    const s = byUrn(SERVICE)!;
     expect(s.sourceFile?.path).toMatch(/services\/kb-explorer-web\.yaml$/);
     expect(s.sourceFile?.format).toBe('yaml');
   });
@@ -120,18 +126,18 @@ describe('service kind (#275)', () => {
     expect(hasEdge(SERVICE, TEAM, 'owned-by')).toBe(true);
     expect(hasConn(SERVICE, TEAM, 'owned-by')).toBe(true);
     // the team is a real, resolved node — not a stub
-    expect(nodeMap.get(TEAM)!.data?.unresolved).toBeUndefined();
+    expect(byUrn(TEAM)!.data?.unresolved).toBeUndefined();
   });
 
   it('resolves service.systems-of-record → system-of-record via tracked-in edges (array FK)', () => {
     expect(hasEdge(SERVICE, SOR, 'tracked-in')).toBe(true);
-    expect(nodeMap.get(SOR)!.data?.unresolved).toBeUndefined();
+    expect(byUrn(SOR)!.data?.unresolved).toBeUndefined();
   });
 });
 
 describe('decision kind (#275)', () => {
   it('emits a decision node with @type=decision, cluster=decision, display=entity', () => {
-    const d = nodeMap.get(DECISION);
+    const d = byUrn(DECISION);
     expect(d).toBeDefined();
     expect(d!.entityType).toBe('decision');
     expect(d!.cluster).toBe('decision');
@@ -139,7 +145,7 @@ describe('decision kind (#275)', () => {
   });
 
   it('gets the per-event lifecycle band', () => {
-    expect(nodeMap.get(DECISION)!.jsonld?.lifecycle).toBe('per-event');
+    expect(byUrn(DECISION)!.jsonld?.lifecycle).toBe('per-event');
   });
 
   it('resolves decision.deciders → person[] via decided-by edges (array FK)', () => {
@@ -150,12 +156,12 @@ describe('decision kind (#275)', () => {
 
   it('resolves decision.affects-workstreams → workstream via an affects edge', () => {
     expect(hasEdge(DECISION, WS, 'affects')).toBe(true);
-    expect(nodeMap.get(WS)!.data?.unresolved).toBeUndefined();
+    expect(byUrn(WS)!.data?.unresolved).toBeUndefined();
   });
 
   it('resolves decision.affects-missions → mission via an affects edge', () => {
     expect(hasEdge(DECISION, MISSION, 'affects')).toBe(true);
-    expect(nodeMap.get(MISSION)!.data?.unresolved).toBeUndefined();
+    expect(byUrn(MISSION)!.data?.unresolved).toBeUndefined();
   });
 });
 
@@ -170,7 +176,7 @@ describe('service + decision — clean resolution (#275)', () => {
 
   it('creates no stub nodes for the service/decision targets', () => {
     for (const urn of [TEAM, SOR, ADA, BEN, WS, MISSION]) {
-      expect(nodeMap.get(urn)?.data?.unresolved).toBeUndefined();
+      expect(byUrn(urn)?.data?.unresolved).toBeUndefined();
     }
   });
 });
@@ -188,7 +194,7 @@ describe('decision — literal `affects` field is not wired (#275)', () => {
     });
     const g = buildContentModel(src);
     const urn = 'kg://xbox.com/decisions/literal-affects';
-    expect(g.nodes.some(n => n.id === urn)).toBe(true);
-    expect(g.edges.some(e => e.from === urn && e.relation === 'affects')).toBe(false);
+    expect(g.nodes.some(n => n.id === lid(urn))).toBe(true);
+    expect(g.edges.some(e => e.from === lid(urn) && e.relation === 'affects')).toBe(false);
   });
 });

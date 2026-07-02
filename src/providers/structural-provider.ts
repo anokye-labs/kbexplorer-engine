@@ -14,11 +14,12 @@
  * byte-identical for repos without a `.github` directory.
  */
 import yaml from 'yaml';
-import { Marked, type Token, type Tokens } from 'marked';
+import { renderSafeMarkdown } from '../safe-markdown';
 import type { GraphProvider, ProviderResult } from '../providers';
 import type { KBConfig, KBNode, NodeSource, Connection } from '../../types';
 import { buildJsonLd } from '../../types';
 import { registerType } from '../node-types';
+import { urnIdentity } from '../identity';
 import { registerViewer } from '../../views/viewers';
 import { WorkflowView } from '../../views/viewers/WorkflowView';
 import { ActionView } from '../../views/viewers/ActionView';
@@ -34,44 +35,11 @@ import {
 const REPO_NODE_ID = 'repo-meta';
 const STRUCTURAL_CLUSTER = 'infra';
 
-/**
- * Markdown → HTML for `.github` docs/templates. Unlike the app-wide renderer,
- * this **escapes raw embedded HTML** (#168 review): markup committed under
- * `.github/` (issue/PR templates, SECURITY.md, …) is treated as untrusted, so
- * it can't inject script/markup into the DOM when the node is rendered via
- * `dangerouslySetInnerHTML`.
- */
-const escapeHtml = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-/**
- * URL schemes that can execute script when used as a link/image target. Markdown
- * such as `[x](javascript:alert(1))` would otherwise render a clickable
- * `javascript:` href once the body is injected via `dangerouslySetInnerHTML`.
- */
-const DANGEROUS_URL_SCHEME = /^\s*(?:javascript|data|vbscript):/i;
-
-const safeMarkdown = new Marked({
-  renderer: {
-    html(token: Tokens.HTML | Tokens.Tag): string {
-      return escapeHtml(token.text ?? '');
-    },
-  },
-  // Neutralize dangerous link/image URLs before they reach the renderer, so the
-  // generated HTML can never carry a script-executing href/src.
-  walkTokens(token: Token): void {
-    if (token.type === 'link' || token.type === 'image') {
-      const t = token as Tokens.Link | Tokens.Image;
-      if (typeof t.href === 'string' && DANGEROUS_URL_SCHEME.test(t.href)) {
-        t.href = '';
-      }
-    }
-  },
-});
-
-function renderSafeMarkdown(body: string): string {
-  return safeMarkdown.parse(body, { async: false }) as string;
-}
+// Markdown → HTML: the shared defensive renderer (../safe-markdown). This
+// provider's original `.github`-content hardening (#168 review) was
+// generalized into that module for #446 / AF-010 — every engine markdown →
+// HTML path now escapes raw embedded HTML and neutralizes dangerous URL
+// schemes before the output can reach `dangerouslySetInnerHTML`.
 
 // ── Type + viewer registration ─────────────────────────────
 
@@ -222,7 +190,7 @@ function buildWorkflowNode(path: string, content: string, repoNodeId: string): K
     entityType: 'workflow',
     ldType: 'Workflow',
     source: { type: 'workflow', path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'Flow',
     data,
     ldProps: { name },
@@ -240,7 +208,7 @@ function buildActionNode(path: string, content: string, repoNodeId: string): KBN
     entityType: 'github-action',
     ldType: 'SoftwareApplication',
     source: { type: 'structured', entityType: 'github-action', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'PuzzlePiece',
     data,
     ldProps: { name },
@@ -267,7 +235,7 @@ function buildSkillNode(path: string, content: string, repoNodeId: string): KBNo
     entityType: 'skill',
     ldType: 'HowTo',
     source: { type: 'structured', entityType: 'skill', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'BookOpenLightbulb',
     data,
     ldProps,
@@ -299,7 +267,7 @@ function buildMarkdownTemplateNode(
     entityType,
     ldType,
     source: { type: 'structured', entityType, ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji,
     data: hasData ? data : undefined,
     ldProps: typeof data.name === 'string' ? { name: data.name } : {},
@@ -319,7 +287,7 @@ function buildYamlFormNode(path: string, content: string, repoNodeId: string): K
     entityType: 'issue-template',
     ldType: 'CreativeWork',
     source: { type: 'structured', entityType: 'issue-template', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'TextBulletListSquare',
     data,
     ldProps: { name },
@@ -336,7 +304,7 @@ function buildCodeownersNode(path: string, content: string, repoNodeId: string):
     entityType: 'codeowners',
     ldType: 'StructuredConfig',
     source: { type: 'structured', entityType: 'codeowners', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'People',
     data: { rules },
     ldProps: { ruleCount: rules.length },
@@ -353,7 +321,7 @@ function buildDependabotNode(path: string, content: string, repoNodeId: string):
     entityType: 'dependabot-config',
     ldType: 'DependabotConfig',
     source: { type: 'structured', entityType: 'dependabot-config', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'ArrowSync',
     data,
     ldProps: typeof data.version !== 'undefined' ? { schemaVersion: data.version } : {},
@@ -370,7 +338,7 @@ function buildFundingNode(path: string, content: string, repoNodeId: string): KB
     entityType: 'funding-config',
     ldType: 'StructuredConfig',
     source: { type: 'structured', entityType: 'funding-config', ref: path },
-    identity: `urn:structural:${path}`,
+    identity: urnIdentity('structural', path),
     emoji: 'Heart',
     data,
     display: 'entity',
@@ -413,7 +381,7 @@ function buildGenericConfigNode(
       entityType: 'github-config',
       ldType: 'CreativeWork',
       source: { type: 'structured', entityType: 'github-config', ref: path },
-      identity: `urn:structural:${path}`,
+      identity: urnIdentity('structural', path),
       emoji: 'Document',
       data: hasData ? data : undefined,
       content: html,

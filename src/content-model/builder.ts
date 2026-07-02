@@ -23,7 +23,7 @@
  * returns empty results so existing graphs are unchanged.
  */
 import yaml from 'yaml';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../safe-markdown';
 import type { Connection, JsonLd, KBEdge, KBNode } from '../../types';
 import { buildJsonLd } from '../../types';
 import type {
@@ -41,7 +41,9 @@ import {
   hasContentModelSource,
   lifecycleBand,
   readContentModelSchema,
+  urnLocalId,
 } from './schema-reader';
+import { assignIdentity } from '../identity';
 
 /** Provider id under which content-model nodes are emitted. */
 export const CONTENT_MODEL_PROVIDER = 'content-model';
@@ -253,27 +255,35 @@ function emitNode(
   const ldData: EntityRecord = { ...data };
   if (band) ldData.lifecycle = band;
   if (nativeType) ldData.nativeType = nativeType;
-  const content = body ? (marked.parse(body, { async: false }) as string) : '';
-  return {
-    id: urn,
+  const content = body ? (renderSafeMarkdown(body)) : '';
+  // Two distinct identifiers (#445 / AF-003): `id` is the provider-local
+  // display key; `identity` is the canonical URN (the cross-provider merge
+  // key). They were collapsed (`id === identity === urn`) from PR #175 until
+  // this fix.
+  const localId = urnLocalId(urn);
+  const node: KBNode = {
+    id: localId,
     title,
     cluster: kind,
     content,
     rawContent: body ?? '',
     display: 'entity',
     connections: [],
-    identity: urn,
     derived: true,
     source: { type: 'structured', entityType: kind, ref: id },
     entityType: kind,
     provider: CONTENT_MODEL_PROVIDER,
     data,
-    jsonld: buildJsonLd({ id: urn, identity: urn }, kind, ldData, ldContext),
+    jsonld: buildJsonLd({ id: localId, identity: urn }, kind, ldData, ldContext),
     // Pointer to the underlying source-of-truth file so the in-app editor can
     // edit the real entity file and hand the change off to GitHub as a PR
     // (F5 — #152). The path is repo-relative (root + entry path).
     sourceFile: { path: joinPath(root, entry.path), raw: entry.raw, format: sourceFormat(entry.path) },
   };
+  // Single identity mechanism (#445): assignIdentity reuses the schema-minted
+  // canonical address carried as the JSON-LD `@id` (buildUrn → context.jsonld).
+  node.identity = assignIdentity(node);
+  return node;
 }
 
 // ── Passes 4 + 5: edge resolution ──────────────────────────
@@ -321,22 +331,25 @@ class EdgeResolver {
     const urn = buildUrn(this.schema, targetKind, ref) ?? `kg://unresolved/${targetKind}/${ref}`;
     if (!this.stubs.has(urn)) {
       const data = { id: ref, unresolved: true };
+      // Same two-identifier contract as emitNode (#445): local display key +
+      // canonical URN, never collapsed.
+      const localId = urnLocalId(urn);
       const node: KBNode = {
-        id: urn,
+        id: localId,
         title: ref,
         cluster: targetKind,
         content: '',
         rawContent: '',
         display: 'entity',
         connections: [],
-        identity: urn,
         derived: true,
         source: { type: 'structured', entityType: targetKind, ref },
         entityType: targetKind,
         provider: CONTENT_MODEL_PROVIDER,
         data,
-        jsonld: buildJsonLd({ id: urn, identity: urn }, targetKind, data, this.ldContext),
+        jsonld: buildJsonLd({ id: localId, identity: urn }, targetKind, data, this.ldContext),
       };
+      node.identity = assignIdentity(node);
       this.stubs.set(urn, node);
       this.nodeByUrn.set(urn, node);
       this.diagnostics.push({
@@ -351,16 +364,21 @@ class EdgeResolver {
 
   private addEdge(from: string, to: string, relation: string, description: string): void {
     if (from === to) return;
+    // Resolution runs on canonical URNs; emitted edges/connections reference
+    // nodes by their LOCAL graph id (buildGraph matches `connections.to` and
+    // edge endpoints against `node.id`, which is no longer the URN — #445).
+    const fromId = urnLocalId(from);
+    const toId = urnLocalId(to);
     const k = `${from}${NUL}${to}${NUL}${relation}`;
     if (!this.edgeKeys.has(k)) {
       this.edgeKeys.add(k);
-      this.edges.push({ from, to, type: 'related', relation, description, source: 'inferred', weight: 1 });
+      this.edges.push({ from: fromId, to: toId, type: 'related', relation, description, source: 'inferred', weight: 1 });
     }
     // Attach a connection to the source node so buildGraph renders the edge.
     const ck = `${from}${NUL}${to}${NUL}${relation}`;
     if (!this.connKeys.has(ck)) {
       this.connKeys.add(ck);
-      const conn: Connection = { to, type: 'related', description, source: 'inferred', relation };
+      const conn: Connection = { to: toId, type: 'related', description, source: 'inferred', relation };
       this.nodeByUrn.get(from)?.connections.push(conn);
     }
   }

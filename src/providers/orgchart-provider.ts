@@ -24,6 +24,7 @@
  */
 import type { GraphProvider, ProviderResult } from '../providers'
 import type { KBConfig, KBNode, ExternalProviderConfig } from '../../types'
+import { assignIdentity } from '../identity'
 
 interface PersonConfig {
   id: string
@@ -75,7 +76,7 @@ export class OrgChartProvider implements GraphProvider {
       const content = `<h2>${person.name}</h2><p><strong>${role}</strong></p>`
       const rawContent = `## ${person.name}\n\n**${role}**`
 
-      nodes.push({
+      const node: KBNode = {
         id: `org-${person.id}`,
         title: person.name,
         cluster: this.defaultCluster,
@@ -85,7 +86,11 @@ export class OrgChartProvider implements GraphProvider {
         connections,
         source: { type: 'external', provider: this.id },
         provider: this.id,
-      })
+      }
+      // AF-042: external nodes carry a provider-scoped identity so they
+      // participate in cross-provider identity indexing like every other node.
+      node.identity = assignIdentity(node)
+      nodes.push(node)
     }
 
     return { nodes, edges: [] }

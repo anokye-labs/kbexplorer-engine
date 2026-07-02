@@ -17,6 +17,7 @@
  */
 import type { GraphProvider, ProviderResult } from '../providers'
 import type { KBConfig, KBNode, ExternalProviderConfig } from '../../types'
+import { assignIdentity } from '../identity'
 
 interface WikiArticleConfig {
   title: string
@@ -81,7 +82,7 @@ export class WikipediaProvider implements GraphProvider {
 
       const rawContent = `${data.extract}\n\n[Read on Wikipedia →](${data.content_urls.desktop.page})`
 
-      nodes.push({
+      const node: KBNode = {
         id: nodeId,
         title: data.title,
         cluster: article.cluster ?? this.defaultCluster,
@@ -91,7 +92,11 @@ export class WikipediaProvider implements GraphProvider {
         connections,
         source: { type: 'external', provider: this.id },
         provider: this.id,
-      })
+      }
+      // AF-042: external nodes carry a provider-scoped identity so they
+      // participate in cross-provider identity indexing like every other node.
+      node.identity = assignIdentity(node)
+      nodes.push(node)
     }
 
     return { nodes, edges: [] }
