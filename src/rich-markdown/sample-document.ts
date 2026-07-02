@@ -12,7 +12,7 @@
  *  - the `?demo=richmd` seam, which injects {@link buildSampleRichMarkdownNode}
  *    into the graph so the document is viewable (and Playwright-verifiable).
  */
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../engine/safe-markdown';
 import type { KBNode } from '../../types';
 import type { RichMarkdownBlock, RichMarkdownDocument } from './types';
 import { hashBlockSource } from './types';
@@ -133,11 +133,11 @@ export function buildSampleRichMarkdownDocument(): RichMarkdownDocument {
 
 /**
  * Build the sample rich-Markdown {@link KBNode}. `content` is rendered the same
- * way the engine renders any node (`marked.parse`), so the inline prose walk
- * finds the same `<pre><code class="language-…">` fences at runtime.
+ * way the engine renders any node (`renderSafeMarkdown`), so the inline prose
+ * walk finds the same `<pre><code class="language-…">` fences at runtime.
  */
 export function buildSampleRichMarkdownNode(id = 'demo-richmd-doc'): KBNode {
-  const content = marked.parse(SAMPLE_RICH_MARKDOWN_RAW, { async: false }) as string;
+  const content = renderSafeMarkdown(SAMPLE_RICH_MARKDOWN_RAW);
   return {
     id,
     title: 'Release Pipeline',
