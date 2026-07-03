@@ -10,6 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { WorkProvider } from '../../providers/work-provider';
+import { buildGraph } from '../../graph';
 import type { GHRelease } from '../../../api';
 import type { KBConfig } from '../../../types';
 import { DEFAULT_CONFIG } from '../../../types';
@@ -113,8 +114,9 @@ describe('WorkProvider — release nodes', () => {
     const release = makeRelease({ tag_name: 'v5.0.0' });
     const provider = new WorkProvider([], [], [], [], null, [release]);
     const { nodes } = await provider.resolve(config, []);
+    const graph = buildGraph(nodes, []);
 
-    const releaseNode = nodes.find(n => n.id === 'release-v5.0.0');
+    const releaseNode = graph.nodes.find(n => n.id === 'release-v5.0.0');
     expect(releaseNode).toBeDefined();
     expect(getNodeLayer(releaseNode!)).toBe('work');
   });
