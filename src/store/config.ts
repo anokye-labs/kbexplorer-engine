@@ -1,3 +1,5 @@
+import type { EngineEnv } from '../env';
+
 export type GraphStoreMode = 'off' | 'sqlite';
 
 export interface GraphStoreOptions {
@@ -5,9 +7,10 @@ export interface GraphStoreOptions {
 }
 
 export function resolveGraphStoreOptions(
-  env: Record<string, string | boolean | undefined> = import.meta.env,
+  env?: EngineEnv,
 ): GraphStoreOptions {
-  const raw = env.VITE_KB_GRAPH_STORE;
+  const engineEnv = env ?? {};
+  const raw = engineEnv.VITE_KB_GRAPH_STORE;
   const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   if (!value || value === 'off' || value === 'false' || value === '0') {
     return { mode: 'off' };
@@ -17,7 +20,7 @@ export function resolveGraphStoreOptions(
 }
 
 export function isGraphStoreEnabled(
-  env: Record<string, string | boolean | undefined> = import.meta.env,
+  env?: EngineEnv,
 ): boolean {
   return resolveGraphStoreOptions(env).mode === 'sqlite';
 }

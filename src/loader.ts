@@ -21,6 +21,7 @@ import { ContentModelProvider } from './providers/content-model-provider';
 import { orchestrateWithTransforms } from './orchestrator';
 import type { RepoSource, RepoData } from './sources/repo-data';
 import { resolveGraphStoreOptions } from './store/config';
+import type { EngineEnv } from './env';
 import { buildProviderResultCacheKey } from './store/fingerprint';
 
 /** Build + register the provider pipeline from a normalized {@link RepoData} bundle. */
@@ -93,6 +94,7 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
 export async function loadKnowledgeBase(
   source: RepoSource,
   config: KBConfig,
+  env?: EngineEnv,
 ): Promise<{ graph: KBGraph; config: KBConfig }> {
   const data = await source.getRepoData();
 
@@ -106,7 +108,7 @@ export async function loadKnowledgeBase(
     for (const p of externals) registry.register(p);
   }
 
-  const storeOptions = resolveGraphStoreOptions();
+  const storeOptions = resolveGraphStoreOptions(env);
   if (storeOptions.mode === 'sqlite') {
     const [
       { SQLiteGraphStore },
