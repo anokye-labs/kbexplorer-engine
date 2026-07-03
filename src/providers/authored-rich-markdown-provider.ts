@@ -33,11 +33,17 @@ import {
 } from '@anokye-labs/kbexplorer-provider-rich-markdown/lib';
 import type { GraphProvider, ProviderResult } from '../providers';
 import type { KBConfig, KBNode, KBEdge } from '../../types';
-import type { RichMarkdownBlock } from '../../views/rich-markdown';
 import { assignIdentity } from '../identity';
 import { isRichAuthoredMarkdown } from './rich-markdown/detect';
 
 const PROVIDER_ID = 'authored-rich-markdown';
+
+interface RichMarkdownBlock {
+  kind: string;
+  source: string;
+  hash?: string;
+  range?: { start: number; end: number };
+}
 
 /** Leading YAML frontmatter block (`---\n…\n---`), tolerant of a BOM + CRLF. */
 const LEADING_FRONTMATTER_RE = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ContentModelProvider } from '../../providers/content-model-provider';
 import { resolveType } from '../../node-types';
-import { resolveViewer } from '../../../views/viewers';
+import { registerBuiltinViewers, resolveViewer } from '../../../views/viewers';
 import { SquadView } from '../../../views/viewers/SquadView';
 import { PersonView } from '../../../views/viewers/PersonView';
 import type { KBConfig } from '../../../types';
@@ -31,6 +31,7 @@ describe('ContentModelProvider (T2.4 / #163)', () => {
   });
 
   it('registers spine node types + bespoke viewers on resolve', async () => {
+    registerBuiltinViewers();
     const provider = new ContentModelProvider(loadFixtureSource());
     const { nodes } = await provider.resolve(config, []);
     expect(resolveType('squad')?.layer).toBe('work');

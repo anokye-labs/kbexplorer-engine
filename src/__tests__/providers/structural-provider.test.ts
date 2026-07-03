@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StructuralProvider, parseCodeowners, buildStructuralFileNode } from '../../providers/structural-provider';
 import { resetNodeTypeRegistry, resolveType } from '../../node-types';
-import { resetViewerRegistry, resolveViewer } from '../../../views/viewers';
+import { registerBuiltinViewers, resetViewerRegistry, resolveViewer } from '../../../views/viewers';
 import { WorkflowView } from '../../../views/viewers/WorkflowView';
 import { ActionView } from '../../../views/viewers/ActionView';
 import { SkillView } from '../../../views/viewers/SkillView';
@@ -84,6 +84,7 @@ describe('StructuralProvider', () => {
   beforeEach(() => {
     resetNodeTypeRegistry();
     resetViewerRegistry();
+    registerBuiltinViewers();
   });
 
   it('is a safe no-op when there are no structural files', async () => {

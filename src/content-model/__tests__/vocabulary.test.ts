@@ -14,7 +14,7 @@ import { readContentModelSchema, canonicalKind, urnLocalId } from '../schema-rea
 import type { ContentModelSource, Vocabulary } from '../types';
 import { loadFixtureSource } from './fixtures';
 import { registerContentModelTypes } from '../register';
-import { resolveViewer } from '../../../views/viewers/registry';
+import { registerBuiltinViewers, resolveViewer } from '../../../views/viewers';
 import { SquadView } from '../../../views/viewers/SquadView';
 import { GenericStructuredView } from '../../../views/viewers/GenericStructuredView';
 import type { KBNode } from '../../../types';
@@ -87,6 +87,7 @@ describe('cross-repo vocabulary — alias canonicalization (#153)', () => {
   });
 
   it('routes the aliased node to the canonical kind\'s bespoke viewer (SquadView)', () => {
+    registerBuiltinViewers();
     registerContentModelTypes();
     const cell = nodeOf(graph, CELL);
     expect(resolveViewer(cell)).toBe(SquadView);

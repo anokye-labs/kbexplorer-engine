@@ -20,10 +20,6 @@ import type { KBConfig, KBNode, NodeSource, Connection } from '../../types';
 import { buildJsonLd } from '../../types';
 import { registerType } from '../node-types';
 import { urnIdentity } from '../identity';
-import { registerViewer } from '../../views/viewers';
-import { WorkflowView } from '../../views/viewers/WorkflowView';
-import { ActionView } from '../../views/viewers/ActionView';
-import { SkillView } from '../../views/viewers/SkillView';
 import {
   applyStructuredNodeMap,
   parseStructuredNodeMap,
@@ -58,10 +54,6 @@ export function registerStructuralTypes(): void {
   registerType({ id: 'funding-config', label: 'Funding', layer: 'work', cluster: STRUCTURAL_CLUSTER, relations: ['structural'], description: 'Repository funding links.' });
   registerType({ id: 'github-config', label: 'Repo Config', layer: 'work', cluster: STRUCTURAL_CLUSTER, relations: ['structural'], description: 'Generic repository configuration file.' });
   registerType({ id: 'structured-config', label: 'Config', layer: 'work', cluster: STRUCTURAL_CLUSTER, relations: ['structural'], description: 'Heuristically-typed structured config.' });
-
-  registerViewer('workflow', WorkflowView);
-  registerViewer('github-action', ActionView);
-  registerViewer('skill', SkillView);
 }
 
 // ── Path classification ────────────────────────────────────
