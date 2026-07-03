@@ -19,7 +19,7 @@
  * is trivially unit-testable and safe to call from the render path.
  */
 import yaml from 'yaml';
-import type { KBConfig, KBNode, NodeSourceFile } from '../types';
+import type { KBConfig, KBNode, NodeSourceFile } from '@anokye-labs/kbexplorer-core';
 
 /** GitHub repository coordinates needed to build deep links. */
 export interface RepoCoords {

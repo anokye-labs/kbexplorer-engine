@@ -8,14 +8,43 @@
 
 import { renderSafeMarkdown } from './safe-markdown';
 import yaml from 'yaml';
-import type {
-  NodeMapEntry,
-  NodeMap,
-  KBNode,
-  DisplayMode,
-  NodeSource,
-} from '../types';
+import type { KBNode, DisplayMode, NodeSource, Connection } from '@anokye-labs/kbexplorer-core';
 import { splitIntoSections } from './parser';
+
+// ── nodemap.yaml schema ─────────────────────────────────────
+// These describe the shape of a `nodemap.yaml` document. They are
+// engine-local (not part of `@anokye-labs/kbexplorer-core`'s domain types)
+// since they encode this loader's own declarative mapping format rather than
+// a knowledge-graph concept.
+
+/** A single entry in nodemap.yaml */
+export interface NodeMapEntry {
+  id: string;
+  title?: string;
+  emoji?: string; // Fluent icon name
+  cluster?: string;
+  display?: DisplayMode;
+  connections?: 'imports' | 'references' | Connection[];
+  exclude?: string[];
+
+  // Mapping modes (exactly one must be set)
+  file?: string; // single file → 1 node
+  files?: string[]; // multiple files → 1 merged node
+  glob?: string; // glob pattern → N nodes
+  directory?: string; // directory → 1 tree node
+
+  // Split options (only with file:)
+  split?: 'headings'; // split file at ## headings
+
+  // Glob options
+  each?: 'file'; // each match becomes a node
+  titleFrom?: 'filename' | 'heading'; // how to derive title
+}
+
+/** Parsed nodemap.yaml */
+export interface NodeMap {
+  nodes: NodeMapEntry[];
+}
 
 // ── Helpers ────────────────────────────────────────────────
 

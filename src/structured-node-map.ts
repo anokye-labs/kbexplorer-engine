@@ -22,8 +22,8 @@
  * problems — so if you're hunting for one, check both.
  */
 import yaml from 'yaml';
-import type { KBNode, NodeSource } from '../types';
-import { buildJsonLd } from '../types';
+import type { KBNode, NodeSource } from '@anokye-labs/kbexplorer-core';
+import { buildJsonLd } from '@anokye-labs/kbexplorer-core';
 import { urnIdentity } from './identity';
 
 // ── Public types ───────────────────────────────────────────

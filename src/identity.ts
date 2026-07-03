@@ -25,7 +25,7 @@
  * are reused verbatim via the JSON-LD `@id` (the core contract: an identity
  * address is ALWAYS reused as a node's `@id`).
  */
-import type { KBNode } from '../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 
 /**
  * Mint a template-scheme identity URN: `urn:<namespace>:<body>`.

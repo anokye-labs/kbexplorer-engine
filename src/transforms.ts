@@ -17,7 +17,7 @@
  * post-processing logic themselves.
  */
 import { renderSafeMarkdown } from './safe-markdown';
-import type { KBNode } from '../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 import { extractIssueRefs, splitIntoSections } from './parser';
 
 /**
