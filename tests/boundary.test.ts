@@ -7,6 +7,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC_ROOT = join(REPO_ROOT, 'src');
 const FORBIDDEN_BARE_SPECIFIERS = ['react', 'react-dom', 'vis-network', 'vis-data'];
 const FORBIDDEN_DOM_GLOBALS = ['document', 'window', 'navigator', 'localStorage', 'sessionStorage', 'HTMLElement'];
+// Allowed until a later Node-store task introduces the sqlite wasm shim.
 const ALLOWED_PLATFORM_EXEMPTIONS = ['src/store/sqlite-runtime.ts'];
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
