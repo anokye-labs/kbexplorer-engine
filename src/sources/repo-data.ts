@@ -52,8 +52,8 @@ export interface RepoMetadata {
 /**
  * The normalized raw-data bundle a {@link RepoSource} hands the loader. Optional
  * fields degrade gracefully: a source that cannot supply them (e.g. the API
- * source has no node-map yet) leaves them empty/null and the matching provider
- * becomes a safe no-op — keeping output byte-identical per source.
+ * source has no `nodemapRaw` yet) leaves them empty/null and the matching
+ * provider becomes a safe no-op — keeping output byte-identical per source.
  */
 export interface RepoData {
   /** owner/name slug for file-node identity. */
