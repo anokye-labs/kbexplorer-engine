@@ -60,6 +60,7 @@ export {
   parseStructuredNodeMap,
   parseStructuredContent,
   reconstructSource,
+  slugify,
 } from './structured-node-map';
 export type { StructuredFile, StructuredNodeMap, NodeMapRule } from './structured-node-map';
 
