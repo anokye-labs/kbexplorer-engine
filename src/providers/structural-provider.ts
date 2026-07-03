@@ -5,9 +5,9 @@
  *
  * "Almost everything in `.github`" becomes a graph citizen: workflows, composite
  * actions, issue / PR templates, CODEOWNERS, dependabot & funding config, plus
- * any other structured config (mapped via the declarative `node-map.yaml` +
- * heuristic fallback from {@link applyNodeMap}). Every produced node carries a
- * `structural` relation edge to the repository (`repo-meta`) node.
+ * any other structured config (mapped via the declarative `structured-node-map.yaml`
+ * + heuristic fallback from {@link applyStructuredNodeMap}). Every produced node
+ * carries a `structural` relation edge to the repository (`repo-meta`) node.
  *
  * Strictly additive and guarded: with no structural files the provider is a
  * safe no-op (`{ nodes: [], edges: [] }`), so existing graph output is
@@ -25,11 +25,11 @@ import { WorkflowView } from '../../views/viewers/WorkflowView';
 import { ActionView } from '../../views/viewers/ActionView';
 import { SkillView } from '../../views/viewers/SkillView';
 import {
-  applyNodeMap,
+  applyStructuredNodeMap,
   parseStructuredNodeMap,
   slugify,
   type StructuredNodeMap,
-} from '../node-map';
+} from '../structured-node-map';
 
 /** Default id of the repository node these structural nodes attach to. */
 const REPO_NODE_ID = 'repo-meta';
@@ -357,7 +357,7 @@ function buildGenericConfigNode(
   repoNodeId: string,
 ): KBNode | null {
   // Try the declarative map + heuristic structured mapper first.
-  const mapped = applyNodeMap({ path, content }, map, {
+  const mapped = applyStructuredNodeMap({ path, content }, map, {
     id: `gh-config-${slugify(path)}`,
     cluster: STRUCTURAL_CLUSTER,
   });

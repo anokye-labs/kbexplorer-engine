@@ -5,7 +5,7 @@ import { resetViewerRegistry, resolveViewer } from '../../../views/viewers';
 import { WorkflowView } from '../../../views/viewers/WorkflowView';
 import { ActionView } from '../../../views/viewers/ActionView';
 import { SkillView } from '../../../views/viewers/SkillView';
-import { parseStructuredNodeMap } from '../../node-map';
+import { parseStructuredNodeMap } from '../../structured-node-map';
 import type { KBConfig } from '../../../types';
 import { DEFAULT_CONFIG } from '../../../types';
 
