@@ -330,7 +330,7 @@ export function issueToNode(issue: GHIssue, options: IssueToNodeOptions = {}): K
   return node;
 }
 
-/** Split a markdown document into parent + section nodes at ## headings. */
+/** Split a markdown file into parent + section nodes at ## headings. */
 export function splitIntoSections(
   parentId: string,
   parentTitle: string,
@@ -593,5 +593,5 @@ export function extractClusters(
 // `config.yaml` via the live GitHub client (`fetchFile` from
 // kbexplorer-template's `src/api/github.ts`), which has not migrated here
 // yet. A Node-safe `KBConfig` fallback (`./default-config`'s `DEFAULT_CONFIG`,
-// with no `import.meta.env` reads) is already in this package, ready for
+// with no Vite build-time env reads) is already in this package, ready for
 // `loadConfig` to use as its fallback once the fetch client lands.

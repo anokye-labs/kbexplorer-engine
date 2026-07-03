@@ -5,15 +5,15 @@ import type { KBConfig } from '@anokye-labs/kbexplorer-core';
  * when a repo has no `config.yaml` (or it fails to load/parse).
  *
  * kbexplorer-template's equivalent (`DEFAULT_CONFIG` in its local
- * `src/types/index.ts`) reads `import.meta.env.VITE_KB_*` — a Vite-only
- * global that this package's `tests/boundary.test.ts` forbids outside the
- * one exempted sqlite-wasm shim, and one this runtime-agnostic engine
- * package must not depend on regardless (it should run under Node as well as
- * a Vite-bundled browser app). This default therefore reads no environment
- * and carries only neutral, sensible values; callers that need
- * environment-driven overrides (e.g. a `VITE_KB_*`-aware host app) should
- * apply them on top of this before/after `loadConfig` merges its own
- * `config.yaml` values in.
+ * `src/types/index.ts`) reads Vite's build-time env-injection global (the
+ * `VITE_KB_*`-prefixed variables) — a Vite-only mechanism that this
+ * package's `tests/boundary.test.ts` forbids outside the one exempted
+ * sqlite-wasm shim, and one this runtime-agnostic engine package must not
+ * depend on regardless (it should run under Node as well as a Vite-bundled
+ * browser app). This default therefore reads no environment and carries
+ * only neutral, sensible values; callers that need environment-driven
+ * overrides (e.g. a `VITE_KB_*`-aware host app) should apply them on top of
+ * this before/after `loadConfig` merges its own `config.yaml` values in.
  */
 export const DEFAULT_CONFIG: KBConfig = {
   title: 'kbexplorer',

@@ -12,7 +12,7 @@ import type { KBNode, DisplayMode, NodeSource, Connection } from '@anokye-labs/k
 import { splitIntoSections } from './parser';
 
 // ── nodemap.yaml schema ─────────────────────────────────────
-// These describe the shape of a `nodemap.yaml` document. They are
+// These describe the shape of a `nodemap.yaml` config file. They are
 // engine-local (not part of `@anokye-labs/kbexplorer-core`'s domain types)
 // since they encode this loader's own declarative mapping format rather than
 // a knowledge-graph concept.

@@ -164,7 +164,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 /**
  * Parse a structured file's content into `{ format, data }`. Returns `null`
  * when the content is not structured object/array data (e.g. plain prose,
- * binary, or an empty document) — such files are not this module's concern.
+ * binary, or an empty file) — such files are not this module's concern.
  */
 export function parseStructuredContent(
   file: StructuredFile,
@@ -368,7 +368,7 @@ export function applyStructuredNodeMap(
 
 // ── structured-node-map.yaml parsing ───────────────────────
 
-/** Parse a `structured-node-map.yaml` document into a normalised {@link StructuredNodeMap}. */
+/** Parse a `structured-node-map.yaml` file into a normalised {@link StructuredNodeMap}. */
 export function parseStructuredNodeMap(raw: string | null | undefined): StructuredNodeMap {
   if (!raw || !raw.trim()) return { rules: [] };
   try {

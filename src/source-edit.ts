@@ -75,7 +75,7 @@ export function normalizeNewlines(text: string): string {
 /**
  * Validate that edited content parses as its declared format **before** any
  * handoff, so a user never opens a PR carrying invalid YAML/JSON. Empty content
- * is rejected (an entity file must contain a document). `markdown` is accepted
+ * is rejected (an entity file must contain content). `markdown` is accepted
  * as always-valid (there is nothing to parse) — `canEditSource` currently only
  * surfaces the editor for `yaml`/`json`, but accepting the full
  * `NodeSourceFile['format']` union keeps this forward-compatible and total.

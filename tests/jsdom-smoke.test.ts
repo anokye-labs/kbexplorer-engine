@@ -2,13 +2,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { loadKnowledgeBase, providers } from '../src/index';
+import { buildGraph, renderSafeMarkdown } from '../src/index';
 
 describe('jsdom smoke test', () => {
-  it('keeps the package importable in a DOM-like environment', async () => {
-    expect(typeof loadKnowledgeBase).toBe('function');
-    expect(providers).toBeDefined();
-
-    await expect(loadKnowledgeBase()).rejects.toThrow('Not implemented yet: loadKnowledgeBase');
+  it('keeps the package importable in a DOM-like environment', () => {
+    expect(typeof buildGraph).toBe('function');
+    expect(buildGraph([], [])).toEqual({ nodes: [], edges: [], clusters: [], related: {} });
+    expect(renderSafeMarkdown('**bold**')).toContain('<strong>');
   });
 });
