@@ -1,4 +1,5 @@
 import type { KBConfig } from '../types';
+import type { EngineEnv } from './env';
 
 export const DEFAULT_STRUCTURED_CONTENT_PATH = 'content-model';
 
@@ -6,7 +7,7 @@ export interface StructuredContentConfig {
   path?: string;
 }
 
-type EnvLike = Record<string, string | boolean | undefined>;
+type EnvLike = EngineEnv;
 
 type StructuredContentAwareConfig = KBConfig & {
   structuredContent?: StructuredContentConfig;
@@ -34,9 +35,10 @@ export function normalizeRepoRelativeDir(raw: unknown): string | null {
 
 export function resolveStructuredContentPath(
   config: KBConfig,
-  env: EnvLike = import.meta.env,
+  env?: EnvLike,
 ): string {
-  const envValue = env.VITE_KB_STRUCTURED_CONTENT_PATH ?? env.VITE_KB_CONTENT_MODEL_PATH;
+  const engineEnv = env ?? {};
+  const envValue = engineEnv.VITE_KB_STRUCTURED_CONTENT_PATH ?? engineEnv.VITE_KB_CONTENT_MODEL_PATH;
   const normalizedEnv = normalizeRepoRelativeDir(envValue);
   if (normalizedEnv) return normalizedEnv;
 
@@ -48,9 +50,10 @@ export function resolveStructuredContentPath(
 
 export function hasExplicitStructuredContentPath(
   config: KBConfig,
-  env: EnvLike = import.meta.env,
+  env?: EnvLike,
 ): boolean {
-  const envValue = env.VITE_KB_STRUCTURED_CONTENT_PATH ?? env.VITE_KB_CONTENT_MODEL_PATH;
+  const engineEnv = env ?? {};
+  const envValue = engineEnv.VITE_KB_STRUCTURED_CONTENT_PATH ?? engineEnv.VITE_KB_CONTENT_MODEL_PATH;
   if (normalizeRepoRelativeDir(envValue)) return true;
 
   const cfg = config as StructuredContentAwareConfig;
