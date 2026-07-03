@@ -47,6 +47,30 @@ describe('buildGraph', () => {
     expect(graph.related['a']).toEqual(expect.arrayContaining(['b', 'c']));
   });
 
+  it('stamps the resolved layer onto each node', () => {
+    const nodes = [
+      makeNode('file-node', { source: { type: 'file', path: 'src/file.ts' } }),
+      makeNode('content-node', { source: { type: 'authored', file: 'content/guide.md' }, entityType: 'section' }),
+      makeNode('work-node', { source: { type: 'release', tag: 'v1.0.0', prerelease: false } }),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
+    expect(graph.nodes[0]?.layer).toBe('file');
+    expect(graph.nodes[1]?.layer).toBe('content');
+    expect(graph.nodes[2]?.layer).toBe('work');
+  });
+
+  it('overwrites any pre-existing layer value with the resolved layer', () => {
+    const node = makeNode('legacy-layer', {
+      layer: 'work',
+      source: { type: 'file', path: 'src/legacy.ts' },
+    });
+
+    const graph = buildGraph([node], clusters);
+
+    expect(graph.nodes[0]?.layer).toBe('file');
+  });
+
   it('connects orphan nodes via inferred edges', () => {
     const nodes = [
       makeNode('hub', { connections: [conn('linked')] }),

@@ -5,6 +5,7 @@
 import type { KBNode, KBGraph, KBEdge, Cluster, EdgeType } from '../types';
 import { EDGE_TYPE_WEIGHTS, getEdgeWeight } from '../types';
 import { filterAccessWithheld } from './access';
+import { resolveNodeLayer } from './node-types/registry';
 
 /**
  * Build the full knowledge graph from a list of nodes and cluster definitions.
@@ -18,6 +19,9 @@ import { filterAccessWithheld } from './access';
  */
 export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
   nodes = filterAccessWithheld(nodes);
+  for (const node of nodes) {
+    node.layer = resolveNodeLayer(node);
+  }
   // AF-019 cheap slice (#445): a cross-provider id collision is silent data
   // loss — the node map last-wins, so edges/related resolve to whichever node
   // happened to come later while both stay in `nodes`. Make it observable.

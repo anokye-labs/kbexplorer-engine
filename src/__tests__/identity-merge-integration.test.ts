@@ -73,6 +73,7 @@ describe('identity merge machinery — nodemap file: link merges file + content 
   it('nodemap file: entry mints the file-tree identity, so the two representations share it', async () => {
     const contentNode = await loadGuideFromNodeMap();
     const fileNode = makeFileNode();
+    buildGraph([contentNode], CLUSTERS);
 
     // The deliberate handshake: both representations carry urn:file:<path>.
     expect(contentNode.identity).toBe(`urn:file:${GUIDE_PATH}`);
