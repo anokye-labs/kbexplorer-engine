@@ -75,6 +75,7 @@ export interface RepoData {
   structuredNodeMapRaw: string | null;
   contentModel: ContentModelSource | null;
   readme: string | null;
+  themeFileRaw?: string | null;
 }
 
 /**
