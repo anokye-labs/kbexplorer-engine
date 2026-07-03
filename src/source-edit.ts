@@ -188,7 +188,7 @@ function diffLines(a: string[], b: string[]): DiffOp[] {
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
   for (let i = m - 1; i >= 0; i--) {
     for (let j = n - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
     }
   }
   const ops: DiffOp[] = [];
@@ -196,19 +196,19 @@ function diffLines(a: string[], b: string[]): DiffOp[] {
   let j = 0;
   while (i < m && j < n) {
     if (a[i] === b[j]) {
-      ops.push({ type: ' ', line: a[i] });
+      ops.push({ type: ' ', line: a[i]! });
       i++;
       j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push({ type: '-', line: a[i] });
+    } else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) {
+      ops.push({ type: '-', line: a[i]! });
       i++;
     } else {
-      ops.push({ type: '+', line: b[j] });
+      ops.push({ type: '+', line: b[j]! });
       j++;
     }
   }
-  while (i < m) ops.push({ type: '-', line: a[i++] });
-  while (j < n) ops.push({ type: '+', line: b[j++] });
+  while (i < m) ops.push({ type: '-', line: a[i++]! });
+  while (j < n) ops.push({ type: '+', line: b[j++]! });
   return ops;
 }
 
@@ -241,10 +241,10 @@ export function buildUnifiedDiff(
   for (let k = 0; k < n; k++) {
     oldAt[k] = oldNo;
     newAt[k] = newNo;
-    if (ops[k].type === ' ') {
+    if (ops[k]!.type === ' ') {
       oldNo++;
       newNo++;
-    } else if (ops[k].type === '-') {
+    } else if (ops[k]!.type === '-') {
       oldNo++;
     } else {
       newNo++;
@@ -255,7 +255,7 @@ export function buildUnifiedDiff(
   const ranges: Array<[number, number]> = [];
   let i = 0;
   while (i < n) {
-    if (ops[i].type === ' ') {
+    if (ops[i]!.type === ' ') {
       i++;
       continue;
     }
@@ -263,7 +263,7 @@ export function buildUnifiedDiff(
     let gap = 0;
     let j = i + 1;
     while (j < n) {
-      if (ops[j].type !== ' ') {
+      if (ops[j]!.type !== ' ') {
         end = j + 1;
         gap = 0;
       } else {
@@ -288,7 +288,7 @@ export function buildUnifiedDiff(
     let newCount = 0;
     const body: string[] = [];
     for (let k = s; k < e; k++) {
-      const o = ops[k];
+      const o = ops[k]!;
       if (o.type === ' ') {
         oldCount++;
         newCount++;
@@ -301,8 +301,8 @@ export function buildUnifiedDiff(
         body.push(`+${o.line}`);
       }
     }
-    const oldStart = oldCount === 0 ? oldAt[s] - 1 : oldAt[s];
-    const newStart = newCount === 0 ? newAt[s] - 1 : newAt[s];
+    const oldStart = oldCount === 0 ? oldAt[s]! - 1 : oldAt[s]!;
+    const newStart = newCount === 0 ? newAt[s]! - 1 : newAt[s]!;
     hunks.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@\n${body.join('\n')}`);
   }
 

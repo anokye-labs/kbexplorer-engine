@@ -6,8 +6,8 @@ import {
   extractIssueRefs,
   extractClusters,
 } from '../parser';
-import type { GHIssue, GHTreeItem } from '../../api';
-import { DEFAULT_CONFIG } from '../../types';
+import type { GHIssue, GHTreeItem } from '../github-types';
+import { DEFAULT_CONFIG } from '../default-config';
 
 // ── parseMarkdownFile ──────────────────────────────────────
 
@@ -238,8 +238,8 @@ describe('issueToNode', () => {
   it('extracts issue cross-references as connections', () => {
     const node = issueToNode(mockIssue);
     expect(node.connections).toHaveLength(2);
-    expect(node.connections[0].to).toBe('issue-10');
-    expect(node.connections[1].to).toBe('issue-15');
+    expect(node.connections[0]!.to).toBe('issue-10');
+    expect(node.connections[1]!.to).toBe('issue-15');
   });
 
   it('renders body as HTML', () => {

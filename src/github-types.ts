@@ -15,7 +15,7 @@ export interface GHIssue {
   html_url: string;
   created_at: string;
   updated_at: string;
-  labels: Array<{ name: string }>;
+  labels: Array<{ name: string; color?: string }>;
   assignees?: Array<{ login: string }> | null;
   /** Present (and truthy) only when the issue is actually a pull request. */
   pull_request?: unknown;
@@ -26,4 +26,10 @@ export interface GHTreeItem {
   path: string;
   type: 'blob' | 'tree';
   size?: number;
+  /** Git file mode (e.g. `'100644'`, `'040000'`). Not read by `treeToNodes` itself. */
+  mode?: string;
+  /** Blob/tree SHA. Not read by `treeToNodes` itself. */
+  sha?: string;
+  /** API URL for this tree entry. Not read by `treeToNodes` itself. */
+  url?: string;
 }

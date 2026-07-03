@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildGraph, getNodeDegrees, getHubNodeId, getEdgeDescription } from '../graph';
-import type { KBNode, KBGraph, Cluster, Connection } from '../../types';
-import { EDGE_TYPE_WEIGHTS, trimGraphToLimits } from '../../types';
+import type { KBNode, KBGraph, Cluster, Connection } from '@anokye-labs/kbexplorer-core';
+import { EDGE_TYPE_WEIGHTS } from '../edge-weights';
+import { trimGraphToLimits } from '../graph';
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ describe('buildGraph', () => {
     expect(graph.edges.length).toBe(3);
     expect(graph.related).toBeDefined();
     // 'a' should list b and c as related
-    expect(graph.related['a']).toEqual(expect.arrayContaining(['b', 'c']));
+    expect(graph.related['a']!).toEqual(expect.arrayContaining(['b', 'c']));
   });
 
   it('stamps the resolved layer onto each node', () => {
@@ -253,8 +254,8 @@ describe('computeRelated (via buildGraph)', () => {
     const graph = buildGraph(nodes, clusters);
 
     // 'a' should list b before c (contains=5 > mentions=0.5)
-    expect(graph.related['a'][0]).toBe('b');
-    expect(graph.related['a'][1]).toBe('c');
+    expect(graph.related['a']![0]).toBe('b');
+    expect(graph.related['a']![1]).toBe('c');
   });
 
   it('uses the strongest parallel edge when ranking related nodes', () => {
@@ -271,8 +272,8 @@ describe('computeRelated (via buildGraph)', () => {
     ];
     const graph = buildGraph(nodes, clusters);
 
-    expect(graph.related['a'][0]).toBe('b');
-    expect(graph.related['a'][1]).toBe('c');
+    expect(graph.related['a']![0]).toBe('b');
+    expect(graph.related['a']![1]).toBe('c');
   });
 
   it('caps related list at 12 entries', () => {
@@ -282,7 +283,7 @@ describe('computeRelated (via buildGraph)', () => {
     const nodes = [hub, ...targets];
     const graph = buildGraph(nodes, clusters);
 
-    expect(graph.related['hub'].length).toBeLessThanOrEqual(12);
+    expect(graph.related['hub']!.length).toBeLessThanOrEqual(12);
   });
 });
 
@@ -495,7 +496,7 @@ describe('buildGraph — cross-provider id collision warning', () => {
         clusters,
       );
       expect(warn).toHaveBeenCalledTimes(1);
-      const message = String(warn.mock.calls[0][0]);
+      const message = String(warn.mock.calls[0]![0]);
       expect(message).toContain('cross-provider id collision');
       expect(message).toContain('"readme"');
       expect(message).toContain('"work"');

@@ -94,11 +94,11 @@ export const readmeTransform: GraphTransform = {
     // Extract inline markdown links from README body: [text](target)
     const readmeConnectedTo = new Set(readmeConns.map(c => c.to));
     for (const m of readme.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
-      const target = m[2].trim();
+      const target = m[2]!.trim();
       if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
       if (target.match(/\.(png|jpg|jpeg|gif|svg|webp|md)$/i)) continue;
       if (readmeConnectedTo.has(target)) continue;
-      readmeConns.push({ to: target, description: m[1] });
+      readmeConns.push({ to: target, description: m[1]! });
       readmeConnectedTo.add(target);
     }
 
@@ -126,13 +126,13 @@ export const issueDirectoryLinkTransform: GraphTransform = {
     const dirNames = dirNodes.map(d => d.title.replace(/\/$/, ''));
     for (const node of issueNodes) {
       for (let i = 0; i < dirNames.length; i++) {
-        const dir = dirNames[i];
+        const dir = dirNames[i]!;
         if (node.rawContent && (
           node.rawContent.includes(`${dir}/`) ||
           node.rawContent.includes(`\`${dir}\``) ||
           node.rawContent.toLowerCase().includes(dir.toLowerCase())
         )) {
-          node.connections.push({ to: dirNodes[i].id, description: `References ${dir}/` });
+          node.connections.push({ to: dirNodes[i]!.id, description: `References ${dir}/` });
         }
       }
     }

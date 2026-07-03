@@ -8,11 +8,37 @@
  * `registerType` call — no edits to the core discriminated unions or render
  * switches.
  *
- * Implementation note: this module imports from `../../types` **type-only**, so
- * there is no runtime import cycle even though `types/index.ts` imports
- * {@link resolveNodeLayer} from here at runtime.
+ * Implementation note: this module imports `KBNode` from
+ * `@anokye-labs/kbexplorer-core` **type-only**, so there is no runtime import
+ * cycle even though the module augmentation below adds a `layer` field to it.
  */
-import type { KBNode, NodeLayer } from '../../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
+
+/**
+ * Graph layer taxonomy. Not part of `@anokye-labs/kbexplorer-core` (it's an
+ * engine-internal concern, not a core domain type) — defined here since this
+ * is the module that resolves it. content-model/register.ts (slice 2) will
+ * import it from here too once it migrates.
+ */
+export type NodeLayer = 'file' | 'content' | 'work';
+
+/**
+ * Module augmentation: `@anokye-labs/kbexplorer-core`'s `KBNode` does not
+ * declare a `layer` field, but `buildGraph()` (`src/graph.ts`, via
+ * {@link resolveNodeLayer}) stamps one onto every node at build time, and
+ * later-slice consumers (content-model/register.ts) read it back. Augmenting
+ * the core type in place — rather than introducing a parallel `EngineNode`
+ * type that every call site would need to swap to — keeps `KBNode` the single
+ * node shape used throughout this package and its consumers. Flagged upstream
+ * (anokye-labs/kbexplorer-template#472) in case `@anokye-labs/kbexplorer-core`
+ * should grow this field natively in a future version.
+ */
+declare module '@anokye-labs/kbexplorer-core' {
+  interface KBNode {
+    /** Graph layer this node belongs to, stamped by `buildGraph()`. */
+    layer?: NodeLayer;
+  }
+}
 
 /** A registered node type and how it participates in the graph. */
 export interface NodeTypeDefinition {

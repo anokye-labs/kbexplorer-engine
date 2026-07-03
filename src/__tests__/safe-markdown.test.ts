@@ -1,44 +1,28 @@
 /**
  * XSS regression tests for the shared defensive markdown renderer
- * (#446 / AF-010 — src/engine/safe-markdown.ts).
+ * (#446 / AF-010 — src/safe-markdown.ts).
  *
  * Every node's `content` reaches the DOM via `dangerouslySetInnerHTML`
  * (ProseContent / ReadingView / SkillView), so each provider path that renders
  * markdown → HTML is an XSS sink for its source. These tests push the canonical
- * payload set through the module itself AND through every engine path that was
- * rewired onto it, asserting that the allowlist sanitizer neutralizes hostile
- * markup — non-allowlisted tags (`<script>`/`<svg>`/`<iframe>`) escape to inert
- * text, `on*` handlers are stripped, and script-executing link/image targets
- * (including entity-encoded scheme colons) are dropped — while legitimate
- * embedded HTML (`<details>`, `<img>` badges, `<table>`) renders as live markup:
+ * payload set through the module itself, asserting that the allowlist sanitizer
+ * neutralizes hostile markup — non-allowlisted tags (`<script>`/`<svg>`/`<iframe>`)
+ * escape to inert text, `on*` handlers are stripped, and script-executing
+ * link/image targets (including entity-encoded scheme colons) are dropped —
+ * while legitimate embedded HTML (`<details>`, `<img>` badges, `<table>`)
+ * renders as live markup.
  *
- *   - renderSafeMarkdown (unit)
- *   - StructuralProvider  (.github templates/docs)
- *   - WorkProvider        (GitHub issue / PR bodies)
- *   - PersonProvider      (issue titles echoed into person node content)
- *   - parser/authored     (parseMarkdownFile, issueToNode)
- *   - AuthoredRichMarkdownProvider (rich-markdown authored docs)
- *   - local-loader        (manifest pipeline: README → readme node)
+ * NOTE (slice 1/5, anokye-labs/kbexplorer-template#472): the original template
+ * test also pushed this payload set through every provider path that renders
+ * markdown (StructuralProvider, WorkProvider, PersonProvider,
+ * AuthoredRichMarkdownProvider, the local-loader manifest pipeline). Those
+ * providers/local-loader haven't migrated to this package yet (providers land
+ * in slice 2), so that "provider-path regression" describe block stays in
+ * kbexplorer-template for now — only the renderSafeMarkdown unit tests below
+ * moved here.
  */
 import { describe, it, expect } from 'vitest';
 import { renderSafeMarkdown } from '../safe-markdown';
-import { StructuralProvider } from '../providers/structural-provider';
-import { WorkProvider } from '../providers/work-provider';
-import { PersonProvider } from '../providers/person-provider';
-import { AuthoredRichMarkdownProvider } from '../providers/authored-rich-markdown-provider';
-import { parseMarkdownFile, issueToNode } from '../parser';
-import {
-  buildConfigFromManifest,
-  buildKnowledgeBaseFromManifest,
-  type RepoManifest,
-} from '../local-loader';
-import { resetNodeTypeRegistry } from '../node-types';
-import { resetViewerRegistry } from '../../views/viewers';
-import type { GHIssue } from '../../api';
-import type { KBConfig } from '../../types';
-import { DEFAULT_CONFIG } from '../../types';
-
-const config: KBConfig = DEFAULT_CONFIG;
 
 // ── Canonical payloads ──────────────────────────────────────
 
@@ -50,23 +34,6 @@ const JS_LINK = '[x](javascript:alert(1))';
 // ever emitted as a live href/src.
 const DATA_IMAGE = '![x](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)';
 const VBS_LINK = '[x](vbscript:msgbox(1))';
-
-/** One markdown body carrying every payload (block + inline positions). */
-const XSS_MARKDOWN = [
-  '# Doc',
-  '',
-  `Inline ${IMG_ONERROR} here.`,
-  '',
-  SVG_ONLOAD,
-  '',
-  SCRIPT,
-  '',
-  JS_LINK,
-  '',
-  DATA_IMAGE,
-  '',
-  VBS_LINK,
-].join('\n');
 
 /**
  * Assert rendered HTML carries none of the payloads as live markup:
@@ -218,135 +185,5 @@ describe('renderSafeMarkdown — legitimate HTML renders as live markup', () => 
     const html = renderSafeMarkdown('[rel](/docs/x) and [mail](mailto:a@b.com)');
     expect(html).toContain('href="/docs/x"');
     expect(html).toContain('href="mailto:a@b.com"');
-  });
-});
-
-// ── Provider-path regression tests ──────────────────────────
-
-function makeIssue(overrides: Partial<GHIssue> & { userLogin?: string } = {}): GHIssue {
-  const { userLogin, ...rest } = overrides;
-  return {
-    number: 1,
-    title: 'Test issue',
-    body: 'Issue body',
-    state: 'open',
-    labels: [],
-    assignees: [],
-    user: userLogin ? { login: userLogin } : undefined,
-    html_url: 'https://github.com/test/repo/issues/1',
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-02T00:00:00Z',
-    ...rest,
-  } as GHIssue;
-}
-
-describe('XSS payloads through every markdown → HTML provider path', () => {
-  it('structural: .github markdown (issue template) is sanitized', async () => {
-    resetNodeTypeRegistry();
-    resetViewerRegistry();
-    const template = `---\nname: Bug report\nabout: Report a bug\n---\n\n${XSS_MARKDOWN}`;
-    const { nodes } = await new StructuralProvider({
-      '.github/ISSUE_TEMPLATE/bug.md': template,
-    }).resolve(config, []);
-
-    const node = nodes.find(n => n.entityType === 'issue-template');
-    expect(node).toBeDefined();
-    expectSanitized(node!.content);
-    expect(node!.content).toContain('&lt;script&gt;');
-  });
-
-  it('work: issue and PR bodies are sanitized', async () => {
-    const issue = makeIssue({ number: 42, body: XSS_MARKDOWN });
-    const pr = {
-      number: 10,
-      title: 'PR #10',
-      body: XSS_MARKDOWN,
-      state: 'open',
-      labels: [] as Array<{ name: string; color: string }>,
-      html_url: 'https://github.com/test/repo/pull/10',
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-02T00:00:00Z',
-    };
-    const { nodes } = await new WorkProvider([issue], [pr], []).resolve(config, []);
-
-    const issueNode = nodes.find(n => n.id === 'issue-42');
-    const prNode = nodes.find(n => n.id === 'pr-10');
-    expect(issueNode).toBeDefined();
-    expect(prNode).toBeDefined();
-    expectSanitized(issueNode!.content);
-    expectSanitized(prNode!.content);
-  });
-
-  it('person: hostile issue titles echoed into person content are sanitized', async () => {
-    const issue = makeIssue({
-      number: 7,
-      title: `${IMG_ONERROR} ${SCRIPT}`,
-      userLogin: 'mallory',
-    });
-    const { nodes } = await new PersonProvider([issue], []).resolve(config, []);
-
-    const person = nodes.find(n => n.id === 'person-mallory');
-    expect(person).toBeDefined();
-    expectSanitized(person!.content);
-  });
-
-  it('parser/authored: parseMarkdownFile output is sanitized', () => {
-    const raw = `---\nid: evil\ntitle: Evil Doc\ncluster: docs\n---\n\n${XSS_MARKDOWN}`;
-    const node = parseMarkdownFile('content/evil.md', raw);
-    expectSanitized(node.content);
-    expect(node.content).toContain('&lt;script&gt;');
-    // rawContent keeps the source untouched — only the HTML is defended.
-    expect(node.rawContent).toContain('<script>');
-  });
-
-  it('parser/repo-aware: issueToNode output is sanitized', () => {
-    const node = issueToNode(makeIssue({ number: 5, body: XSS_MARKDOWN }));
-    expectSanitized(node.content);
-  });
-
-  it('rich-markdown: authored rich-markdown docs are sanitized', async () => {
-    const richDoc = [
-      '---',
-      'id: evil-rich',
-      'title: Evil Rich Doc',
-      'display: rich-markdown',
-      'cluster: docs',
-      '---',
-      '',
-      XSS_MARKDOWN,
-      '',
-      '```mermaid',
-      'flowchart LR',
-      '  A --> B',
-      '```',
-    ].join('\n');
-    const { nodes } = await new AuthoredRichMarkdownProvider({
-      'content/evil.md': richDoc,
-    }).resolve(config, []);
-
-    expect(nodes).toHaveLength(1);
-    expectSanitized(nodes[0].content);
-    // The legitimate fenced block still renders as a prose fence.
-    expect(nodes[0].content).toContain('language-mermaid');
-  });
-
-  it('local-loader: manifest pipeline README node is sanitized', async () => {
-    const manifest: RepoManifest = {
-      configRaw: null,
-      authoredContent: {},
-      tree: [],
-      readme: XSS_MARKDOWN,
-      issues: [],
-      pullRequests: [],
-      commits: [],
-      generatedAt: '2026-01-01T00:00:00Z',
-    };
-    const cfg = buildConfigFromManifest(manifest);
-    const { graph } = await buildKnowledgeBaseFromManifest(manifest, cfg);
-
-    const readme = graph.nodes.find(n => n.id === 'readme');
-    expect(readme).toBeDefined();
-    expectSanitized(readme!.content);
-    expect(readme!.content).toContain('&lt;script&gt;');
   });
 });

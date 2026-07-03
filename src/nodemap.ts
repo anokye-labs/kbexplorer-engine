@@ -92,7 +92,7 @@ function getNodePath(node: KBNode): string | undefined {
 function globToRegex(pattern: string): RegExp {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
+    const c = pattern[i]!;
     if (c === '*' && pattern[i + 1] === '*') {
       re += '.*';
       i += 1;
@@ -136,8 +136,8 @@ function buildFileNode(
     cluster: entry.cluster ?? 'default',
     content: renderHtml(content, filePath),
     rawContent: content,
-    emoji: entry.emoji,
-    display,
+    ...(entry.emoji !== undefined ? { emoji: entry.emoji } : {}),
+    ...(display !== undefined ? { display } : {}),
     derived: true,
     connections: [],
     identity: `urn:file:${filePath}`,
@@ -216,11 +216,11 @@ async function processMerge(
       cluster: entry.cluster ?? 'default',
       content: html,
       rawContent: merged,
-      emoji: entry.emoji,
+      ...(entry.emoji !== undefined ? { emoji: entry.emoji } : {}),
       display,
       derived: true,
       connections: [],
-      source: { type: 'file', path: files[0] },
+      source: { type: 'file', path: files[0]! },
     },
   ];
 }
@@ -250,7 +250,7 @@ async function processGlob(
     let title: string;
     if (entry.titleFrom === 'heading') {
       const m = content.match(/^#\s+(.+)/m);
-      title = m ? m[1].trim() : fileBase;
+      title = m ? m[1]!.trim() : fileBase;
     } else {
       title = fileBase;
     }
@@ -334,22 +334,25 @@ export function extractImportPaths(
 
   // import ... from '...' (handles multiline destructured imports)
   for (const m of content.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)) {
-    if (m[1].startsWith('.'))
-      paths.push(resolveImportPath(m[1], fromFile));
+    const spec = m[1]!;
+    if (spec.startsWith('.'))
+      paths.push(resolveImportPath(spec, fromFile));
   }
 
   // Side-effect imports: import '...'
   for (const m of content.matchAll(/^\s*import\s+['"]([^'"]+)['"]/gm)) {
-    if (m[1].startsWith('.'))
-      paths.push(resolveImportPath(m[1], fromFile));
+    const spec = m[1]!;
+    if (spec.startsWith('.'))
+      paths.push(resolveImportPath(spec, fromFile));
   }
 
   // CommonJS require('...')
   for (const m of content.matchAll(
     /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
   )) {
-    if (m[1].startsWith('.'))
-      paths.push(resolveImportPath(m[1], fromFile));
+    const spec = m[1]!;
+    if (spec.startsWith('.'))
+      paths.push(resolveImportPath(spec, fromFile));
   }
 
   return [...new Set(paths)];

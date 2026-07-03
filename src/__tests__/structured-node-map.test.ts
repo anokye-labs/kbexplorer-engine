@@ -22,7 +22,7 @@ describe('parseStructuredNodeMap', () => {
     entityType: dependabot-config`;
     const map = parseStructuredNodeMap(raw);
     expect(map.rules).toHaveLength(1);
-    expect(map.rules[0].type).toBe('DependabotConfig');
+    expect(map.rules[0]!.type).toBe('DependabotConfig');
   });
 
   it('returns empty rules for empty/invalid input', () => {
@@ -34,7 +34,7 @@ describe('parseStructuredNodeMap', () => {
   it('drops rules without a string type', () => {
     const map = parseStructuredNodeMap('rules:\n  - glob: "*.json"\n  - type: Good');
     expect(map.rules).toHaveLength(1);
-    expect(map.rules[0].type).toBe('Good');
+    expect(map.rules[0]!.type).toBe('Good');
   });
 });
 

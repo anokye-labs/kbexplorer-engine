@@ -94,7 +94,7 @@ export interface ApplyOptions {
 export function globToRegex(pattern: string): RegExp {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
+    const c = pattern[i]!;
     if (c === '*' && pattern[i + 1] === '*') {
       re += '.*';
       i += 1;
@@ -251,10 +251,10 @@ function makeNode(args: {
     display: 'entity',
     connections: (args.edges ?? []).map(e => ({
       to: e.to,
-      type: e.type,
-      relation: e.relation,
       description: e.description ?? 'Structural',
       source: 'inferred' as const,
+      ...(e.type !== undefined ? { type: e.type } : {}),
+      ...(e.relation !== undefined ? { relation: e.relation } : {}),
     })),
     identity,
     derived: true,
@@ -306,7 +306,7 @@ function buildMappedNode(
     data,
     ref: file.path,
     ldProps,
-    edges: rule.edges,
+    ...(rule.edges !== undefined ? { edges: rule.edges } : {}),
   });
 }
 
