@@ -22,8 +22,8 @@
  * problems — so if you're hunting for one, check both.
  */
 import yaml from 'yaml';
-import type { KBNode, NodeSource } from '../types';
-import { buildJsonLd } from '../types';
+import type { KBNode, NodeSource } from '@anokye-labs/kbexplorer-core';
+import { buildJsonLd } from '@anokye-labs/kbexplorer-core';
 import { urnIdentity } from './identity';
 
 // ── Public types ───────────────────────────────────────────
@@ -94,7 +94,7 @@ export interface ApplyOptions {
 export function globToRegex(pattern: string): RegExp {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
+    const c = pattern[i]!;
     if (c === '*' && pattern[i + 1] === '*') {
       re += '.*';
       i += 1;
@@ -164,7 +164,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 /**
  * Parse a structured file's content into `{ format, data }`. Returns `null`
  * when the content is not structured object/array data (e.g. plain prose,
- * binary, or an empty document) — such files are not this module's concern.
+ * binary, or an empty file) — such files are not this module's concern.
  */
 export function parseStructuredContent(
   file: StructuredFile,
@@ -251,10 +251,10 @@ function makeNode(args: {
     display: 'entity',
     connections: (args.edges ?? []).map(e => ({
       to: e.to,
-      type: e.type,
-      relation: e.relation,
       description: e.description ?? 'Structural',
       source: 'inferred' as const,
+      ...(e.type !== undefined ? { type: e.type } : {}),
+      ...(e.relation !== undefined ? { relation: e.relation } : {}),
     })),
     identity,
     derived: true,
@@ -306,7 +306,7 @@ function buildMappedNode(
     data,
     ref: file.path,
     ldProps,
-    edges: rule.edges,
+    ...(rule.edges !== undefined ? { edges: rule.edges } : {}),
   });
 }
 
@@ -368,7 +368,7 @@ export function applyStructuredNodeMap(
 
 // ── structured-node-map.yaml parsing ───────────────────────
 
-/** Parse a `structured-node-map.yaml` document into a normalised {@link StructuredNodeMap}. */
+/** Parse a `structured-node-map.yaml` file into a normalised {@link StructuredNodeMap}. */
 export function parseStructuredNodeMap(raw: string | null | undefined): StructuredNodeMap {
   if (!raw || !raw.trim()) return { rules: [] };
   try {

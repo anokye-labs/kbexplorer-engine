@@ -13,19 +13,12 @@ import type {
   Cluster,
   Connection,
   EdgeType,
-  SourceConfig,
-} from '../types';
-import { DEFAULT_CONFIG } from '../types';
+  DisplayMode,
+  PageTheme,
+} from '@anokye-labs/kbexplorer-core';
 import { assignIdentity } from './identity';
 import { parseAccessLabel } from './access';
-import {
-  fetchFile,
-  fetchTree,
-  fetchFiles,
-  fetchIssues,
-  type GHIssue,
-  type GHTreeItem,
-} from '../api';
+import type { GHIssue, GHTreeItem } from './github-types';
 
 const DATE_FORMAT = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
 
@@ -40,7 +33,7 @@ interface AuthoredFrontmatter {
   sprite?: string;
   parent?: string;
   derived?: boolean;
-  display?: import('../types').DisplayMode;
+  display?: DisplayMode;
   connections?: unknown;
   accent?: string;
   tokens?: Partial<Record<string, string>>;
@@ -55,8 +48,8 @@ interface AuthoredFrontmatter {
  * usable value), so unthemed nodes carry no `pageTheme` and behave exactly as
  * before. Values are normalized defensively since frontmatter is untrusted.
  */
-function buildPageTheme(fm: Partial<AuthoredFrontmatter>): import('../types').PageTheme | undefined {
-  const page: import('../types').PageTheme = {};
+function buildPageTheme(fm: Partial<AuthoredFrontmatter>): PageTheme | undefined {
+  const page: PageTheme = {};
   if (typeof fm.accent === 'string' && fm.accent.trim()) page.accent = fm.accent.trim();
   if (typeof fm.theme === 'string' && fm.theme.trim()) page.theme = fm.theme.trim();
   if (fm.tokens && typeof fm.tokens === 'object' && !Array.isArray(fm.tokens)) {
@@ -118,8 +111,8 @@ function parseFrontmatter(raw: string): { data: Record<string, unknown>; content
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) return { data: {}, content: raw };
   try {
-    const data = yaml.parse(match[1]) as Record<string, unknown>;
-    return { data: data ?? {}, content: match[2] };
+    const data = yaml.parse(match[1]!) as Record<string, unknown>;
+    return { data: data ?? {}, content: match[2]! };
   } catch {
     return { data: {}, content: raw };
   }
@@ -138,11 +131,11 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   // Extract inline markdown links: [text](target)
   const connectedTo = new Set(connections.map(c => c.to));
   for (const m of content.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
-    const target = m[2].trim();
+    const target = m[2]!.trim();
     if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
     if (target.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) continue;
     if (connectedTo.has(target)) continue;
-    connections.push({ to: target, type: 'references', description: m[1], source: 'inline' });
+    connections.push({ to: target, type: 'references', description: m[1]!, source: 'inline' });
     connectedTo.add(target);
   }
 
@@ -167,12 +160,12 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
     cluster: fm.cluster ?? 'default',
     content: html,
     rawContent: content,
-    emoji: fm.emoji,
-    image: fm.image,
-    sprite: fm.sprite,
-    parent: fm.parent,
+    ...(fm.emoji !== undefined ? { emoji: fm.emoji } : {}),
+    ...(fm.image !== undefined ? { image: fm.image } : {}),
+    ...(fm.sprite !== undefined ? { sprite: fm.sprite } : {}),
+    ...(fm.parent !== undefined ? { parent: fm.parent } : {}),
     derived: fm.derived === true,
-    display: fm.display,
+    ...(fm.display !== undefined ? { display: fm.display } : {}),
     connections,
     source: { type: 'authored', file: path },
   };
@@ -183,33 +176,20 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   // docs from render + search. Absent/unusable frontmatter → unlabeled.
   const access = parseAccessLabel(fm.access);
   if (access) node.access = access;
-  node.identity = assignIdentity(node);
+  const identity = assignIdentity(node);
+  if (identity !== undefined) node.identity = identity;
   return node;
 }
 
-/** Load authored content from a content directory in the repo. */
-export async function loadAuthoredContent(
-  source: SourceConfig,
-  contentPath: string
-): Promise<KBNode[]> {
-  const tree = await fetchTree(source, contentPath);
-  const mdFiles = tree
-    .filter(item => item.type === 'blob' && item.path.endsWith('.md'))
-    .map(item => item.path);
-
-  const files = await fetchFiles(source, mdFiles);
-  const nodes: KBNode[] = [];
-
-  for (const [path, content] of files) {
-    try {
-      nodes.push(parseMarkdownFile(path, content));
-    } catch {
-      console.warn(`[kbexplorer] Failed to parse ${path}, skipping`);
-    }
-  }
-
-  return nodes;
-}
+// NOTE (slice 1/5, anokye-labs/kbexplorer-template#472): `loadAuthoredContent`
+// is deferred to slice 4. It called the live GitHub REST client
+// (`fetchTree`/`fetchFiles` from kbexplorer-template's `src/api/github.ts`),
+// which has not migrated to this package yet — only the type shapes it needs
+// (`GHIssue`/`GHTreeItem`, see `./github-types`) moved in this slice. The
+// pure, side-effect-free parsing functions below (`parseMarkdownFile`,
+// `extractIssueRefs`, `issueToNode`, `splitIntoSections`, `treeToNodes`,
+// `extractClusters`) are unaffected and are the ones exported from this
+// package for now.
 
 // ── Repo-aware mode ────────────────────────────────────────
 
@@ -345,11 +325,12 @@ export function issueToNode(issue: GHIssue, options: IssueToNodeOptions = {}): K
     source: { type: 'issue', number: issue.number, state: issue.state, labels },
   };
   if (repoNodeId) node.parent = repoNodeId;
-  node.identity = assignIdentity(node);
+  const issueIdentity = assignIdentity(node);
+  if (issueIdentity !== undefined) node.identity = issueIdentity;
   return node;
 }
 
-/** Split a markdown document into parent + section nodes at ## headings. */
+/** Split a markdown file into parent + section nodes at ## headings. */
 export function splitIntoSections(
   parentId: string,
   parentTitle: string,
@@ -368,7 +349,7 @@ export function splitIntoSections(
     const headingMatch = line.match(/^##\s+(.+)/);
     if (headingMatch) {
       if (currentSection) sections.push(currentSection);
-      currentSection = { title: headingMatch[1].trim(), lines: [] };
+      currentSection = { title: headingMatch[1]!.trim(), lines: [] };
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else {
@@ -414,11 +395,12 @@ export function splitIntoSections(
 
   // Section nodes
   for (let i = 0; i < sections.length; i++) {
-    const s = sections[i];
+    const s = sections[i]!;
+    const sectionId = sectionIds[i]!;
     const sectionBody = s.lines.join('\n').trim();
     const sectionHtml = sectionBody ? renderSafeMarkdown(sectionBody) : '';
     const sectionNode: KBNode = {
-      id: sectionIds[i],
+      id: sectionId,
       title: s.title,
       cluster,
       content: sectionHtml,
@@ -472,8 +454,8 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
   for (const item of tree) {
     if (item.path.startsWith('.')) continue;
     const parts = item.path.split('/');
-    if (parts[0].startsWith('.')) continue;
-    if (excludeSet.has(parts[0])) continue; // skip authored content dirs
+    if (parts[0]!.startsWith('.')) continue;
+    if (excludeSet.has(parts[0]!)) continue; // skip authored content dirs
     if (item.type === 'tree') continue;
 
     const dirPath = parts.length > 1 ? parts.slice(0, Math.min(2, parts.length - 1)).join('/') : '';
@@ -499,7 +481,8 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
     connections: [],
     source: { type: 'file', path: '/' },
   };
-  rootNode.identity = assignIdentity(rootNode);
+  const rootIdentity = assignIdentity(rootNode);
+  if (rootIdentity !== undefined) rootNode.identity = rootIdentity;
   nodes.push(rootNode);
 
   // Directory nodes — top-level are children of repo-root
@@ -530,9 +513,9 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
     if (item.type !== 'blob') continue;
     if (item.path.startsWith('.')) continue;
     const parts = item.path.split('/');
-    if (parts[0].startsWith('.')) continue;
-    if (excludeSet.has(parts[0])) continue; // skip authored content files
-    if (SKIP_FILES.has(parts[parts.length - 1])) continue;
+    if (parts[0]!.startsWith('.')) continue;
+    if (excludeSet.has(parts[0]!)) continue; // skip authored content files
+    if (SKIP_FILES.has(parts[parts.length - 1]!)) continue;
     const ext = '.' + item.path.split('.').pop()?.toLowerCase();
     if (!KEY_EXTENSIONS.has(ext)) continue;
     if (item.path === 'README.md') continue;
@@ -546,7 +529,7 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
 
     nodes.push({
       id: `file-${item.path}`,
-      title: parts[parts.length - 1],
+      title: parts[parts.length - 1]!,
       cluster: 'infra',
       content: `<p><code>${item.path}</code></p>`,
       rawContent: item.path,
@@ -562,112 +545,9 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
   return nodes;
 }
 
-/** Load repo-aware content: issues, README, and directory structure. */
-export async function loadRepoContent(source: SourceConfig): Promise<KBNode[]> {
-  const [issues, tree, readme] = await Promise.all([
-    fetchIssues(source).catch(() => [] as GHIssue[]),
-    fetchTree(source).catch(() => [] as GHTreeItem[]),
-    fetchFile(source, 'README.md').catch(() => null),
-  ]);
-
-  const nodes: KBNode[] = [];
-
-  // Pre-compute the valid issue/PR id sets so issueToNode can filter phantom
-  // #NNN references (this used to produce hundreds of dangling edges).
-  const knownIssueNumbers = new Set(issues.filter(i => !(i as { pull_request?: unknown }).pull_request).map(i => i.number));
-  const knownPrNumbers = new Set(issues.filter(i => (i as { pull_request?: unknown }).pull_request).map(i => i.number));
-  const issueNodes = issues.map(i => issueToNode(i, {
-    knownIssueNumbers,
-    knownPrNumbers,
-    repoNodeId: 'repo-meta',
-  }));
-  const dirNodes = treeToNodes(tree, source.repo);
-
-  nodes.push(...issueNodes);
-  nodes.push(...dirNodes);
-
-  // README as a single node with content-based connections
-  if (readme) {
-    const readmeConns: Connection[] = [];
-    const lower = readme.toLowerCase();
-    const issueRefs = extractIssueRefs(readme);
-    for (const num of issueRefs) {
-      const id = `issue-${num}`;
-      if (issueNodes.some(n => n.id === id)) {
-        readmeConns.push({ to: id, type: 'cross_references', description: `References #${num}`, source: 'inline' });
-      }
-    }
-    for (const node of issueNodes) {
-      if (readmeConns.some(c => c.to === node.id)) continue;
-      const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      if (titleWords.length === 0) continue;
-      const matchCount = titleWords.filter(w => lower.includes(w)).length;
-      if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
-        readmeConns.push({ to: node.id, type: 'mentions', description: 'Mentions', source: 'inferred' });
-      }
-    }
-    for (const dir of dirNodes) {
-      const dirName = dir.title.replace(/\/$/, '');
-      if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
-        readmeConns.push({ to: dir.id, type: 'references', description: `References ${dirName}/`, source: 'inferred' });
-      }
-    }
-    readmeConns.push({ to: 'repo-root', type: 'contains', description: 'Documents', source: 'inferred' });
-
-    // Extract inline markdown links from README body: [text](target)
-    const readmeConnectedTo = new Set(readmeConns.map(c => c.to));
-    for (const m of readme.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
-      const target = m[2].trim();
-      if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
-      if (target.match(/\.(png|jpg|jpeg|gif|svg|webp|md)$/i)) continue;
-      if (readmeConnectedTo.has(target)) continue;
-      readmeConns.push({ to: target, type: 'references', description: m[1], source: 'inline' });
-      readmeConnectedTo.add(target);
-    }
-
-    const html = renderSafeMarkdown(readme);
-    nodes.push({
-      id: 'readme', title: 'README', cluster: 'docs',
-      content: html, rawContent: readme, emoji: 'Document',
-      parent: 'repo-root',
-      identity: 'urn:content:readme',
-      connections: readmeConns, source: { type: 'readme' },
-    });
-  }
-
-  // Split issues with 2+ headings into parent + section nodes
-  const expandedIssues: KBNode[] = [];
-  for (const node of issueNodes) {
-    const sectionNodes = splitIntoSections(
-      node.id, node.title, node.rawContent, node.cluster, node.emoji ?? 'Pin',
-      node.source, [...issueNodes, ...dirNodes],
-    );
-    if (sectionNodes.length > 0) {
-      // Replace flat issue with parent + sections
-      const idx = nodes.indexOf(node);
-      if (idx >= 0) nodes.splice(idx, 1);
-      expandedIssues.push(...sectionNodes);
-    }
-  }
-  nodes.push(...expandedIssues);
-
-  // Auto-link: issues → directories mentioned in their body
-  const dirNames = dirNodes.map(d => d.title.replace(/\/$/, '')); // e.g. "src", "public"
-  for (const node of issueNodes) {
-    for (let i = 0; i < dirNames.length; i++) {
-      const dir = dirNames[i];
-      if (node.rawContent && (
-        node.rawContent.includes(`${dir}/`) ||
-        node.rawContent.includes(`\`${dir}\``) ||
-        node.rawContent.toLowerCase().includes(dir.toLowerCase())
-      )) {
-        node.connections.push({ to: dirNodes[i].id, type: 'references', description: `References ${dir}/`, source: 'inferred' });
-      }
-    }
-  }
-
-  return nodes;
-}
+// NOTE (slice 1/5): `loadRepoContent` is deferred to slice 4 for the same
+// reason as `loadAuthoredContent` above — it calls the live
+// `fetchIssues`/`fetchTree`/`fetchFile` GitHub client, not yet migrated.
 
 // ── Cluster extraction ─────────────────────────────────────
 
@@ -699,7 +579,7 @@ export function extractClusters(
             .split(/[-_]/)
             .map(w => w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
             .join(' '),
-          color: palette[colorIdx % palette.length],
+          color: palette[colorIdx % palette.length]!,
         });
         colorIdx++;
       }
@@ -709,18 +589,9 @@ export function extractClusters(
   return [...configClusters.values()];
 }
 
-// ── Config loading ─────────────────────────────────────────
-
-/** Try to load config.yaml from the repo. Falls back to DEFAULT_CONFIG. */
-export async function loadConfig(source: SourceConfig): Promise<KBConfig> {
-  try {
-    const raw = await fetchFile(source, source.path
-      ? `${source.path}/config.yaml`
-      : 'content/config.yaml'
-    );
-    const parsed = yaml.parse(raw) as Partial<KBConfig>;
-    return { ...DEFAULT_CONFIG, ...parsed, source };
-  } catch {
-    return { ...DEFAULT_CONFIG, source };
-  }
-}
+// NOTE (slice 1/5): `loadConfig` is deferred to slice 4 — it fetches
+// `config.yaml` via the live GitHub client (`fetchFile` from
+// kbexplorer-template's `src/api/github.ts`), which has not migrated here
+// yet. A Node-safe `KBConfig` fallback (`./default-config`'s `DEFAULT_CONFIG`,
+// with no Vite build-time env reads) is already in this package, ready for
+// `loadConfig` to use as its fallback once the fetch client lands.

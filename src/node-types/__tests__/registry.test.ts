@@ -8,7 +8,7 @@ import {
   resolveTypeCluster,
   resetNodeTypeRegistry,
 } from '../registry';
-import type { KBNode } from '../../../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 
 function makeNode(overrides: Partial<KBNode> & Pick<KBNode, 'id' | 'source'>): KBNode {
   return {
@@ -81,7 +81,7 @@ describe('node-type registry (T1.2/T1.5)', () => {
       resolveTypeCluster({ entityType: 'person', source: { type: 'structured' } }),
     ).toBe('people');
     expect(
-      resolveTypeCluster({ entityType: undefined, source: { type: 'file' } }),
+      resolveTypeCluster({ source: { type: 'file' } }),
     ).toBeUndefined();
   });
 

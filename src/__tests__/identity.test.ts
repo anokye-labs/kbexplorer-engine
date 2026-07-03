@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { assignIdentity, shareIdentity, buildIdentityIndex } from '../identity';
-import type { KBNode, NodeSource } from '../../types';
+import type { KBNode, NodeSource } from '@anokye-labs/kbexplorer-core';
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ function makeNode(
     rawContent: '',
     connections: [],
     source,
-    identity,
+    ...(identity !== undefined ? { identity } : {}),
   };
 }
 

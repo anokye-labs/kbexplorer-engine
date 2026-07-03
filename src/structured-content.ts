@@ -1,4 +1,4 @@
-import type { KBConfig } from '../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
 import type { EngineEnv } from './env';
 
 export const DEFAULT_STRUCTURED_CONTENT_PATH = 'content-model';

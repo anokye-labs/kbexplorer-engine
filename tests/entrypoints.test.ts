@@ -1,34 +1,59 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyTransforms,
+  assignIdentity,
   buildGraph,
-  contentModel,
-  identity,
-  loadKnowledgeBase,
-  nodeTypes,
-  orchestrator,
-  parser,
-  providers,
-  queryHelpers,
-  transforms,
+  DEFAULT_CONFIG,
+  DEFAULT_TRANSFORMS,
+  extractClusters,
+  getRegisteredTypes,
+  globToRegex,
+  isAccessWithheld,
+  parseMarkdownFile,
+  registerBuiltInNodeTypes,
+  renderSafeMarkdown,
 } from '../src/index';
 import { GitHubApiSource, ManifestSource, type RepoSource } from '../src/sources';
 import { sqliteProviderResultStore } from '../src/store';
 
 describe('package entrypoints', () => {
-  it('exports the scaffolded placeholder entry points', async () => {
-    await expect(loadKnowledgeBase()).rejects.toThrow('Not implemented yet: loadKnowledgeBase');
-    expect(() => buildGraph()).toThrow('Not implemented yet: buildGraph');
+  it('exports the real slice-1 pipeline-core public API', () => {
+    // graph.ts
+    expect(buildGraph([], [])).toEqual({ nodes: [], edges: [], clusters: [], related: {} });
 
-    expect(orchestrator).toBeDefined();
-    expect(transforms).toBeDefined();
-    expect(providers).toBeDefined();
-    expect(nodeTypes).toBeDefined();
-    expect(contentModel).toBeDefined();
-    expect(identity).toBeDefined();
-    expect(parser).toBeDefined();
-    expect(queryHelpers).toBeDefined();
+    // parser.ts
+    const node = parseMarkdownFile('docs/hello.md', '# Hello\n\nBody text.');
+    expect(node.id).toBeDefined();
 
+    // identity.ts
+    expect(typeof assignIdentity(node)).toBe('string');
+
+    // access.ts
+    expect(isAccessWithheld({})).toBe(false);
+
+    // transforms.ts
+    expect(DEFAULT_TRANSFORMS.length).toBeGreaterThan(0);
+    expect(applyTransforms([], { readme: null })).toEqual([]);
+
+    // safe-markdown.ts
+    expect(renderSafeMarkdown('**bold**')).toContain('<strong>');
+
+    // glob.ts
+    expect(globToRegex('*.md').test('readme.md')).toBe(true);
+
+    // default-config.ts
+    expect(DEFAULT_CONFIG.title).toBeDefined();
+
+    // node-types/
+    registerBuiltInNodeTypes();
+    expect(getRegisteredTypes().length).toBeGreaterThan(0);
+
+    // extractClusters — parser.ts
+    expect(extractClusters([node], DEFAULT_CONFIG)).toBeDefined();
+  });
+
+  it('exports the source/store entry points', () => {
     expect(new ManifestSource()).toBeInstanceOf(ManifestSource);
     expect(new GitHubApiSource()).toBeInstanceOf(GitHubApiSource);
 

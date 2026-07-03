@@ -5,7 +5,7 @@
  * Custom types can be added at runtime via {@link registerType} without
  * touching the core discriminated unions.
  */
-export type { NodeTypeDefinition } from './registry';
+export type { NodeTypeDefinition, NodeLayer } from './registry';
 export {
   registerType,
   resolveType,

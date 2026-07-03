@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { KBConfig, KBNode, NodeSourceFile } from '../../types';
+import type { KBConfig, KBNode, NodeSourceFile } from '@anokye-labs/kbexplorer-core';
 import {
   canEditSource,
   resolveSourceFile,
@@ -13,8 +13,17 @@ import {
   patchFilename,
   buildSourceEditHandoff,
 } from '../source-edit';
-import { buildContentModel } from '../content-model';
-import { loadFixtureSource } from '../content-model/__tests__/fixtures';
+
+// Provenance note (slice 1/5, anokye-labs/kbexplorer-template#472): this is
+// template's original `source-edit.test.ts`, ported with its `content-model`
+// -dependent cases removed — `content-model` (and its test fixtures) doesn't
+// move until slice 2. The dropped cases were:
+//   - "the content-model builder attaches the underlying file path + raw to
+//     entity nodes" (calls `buildContentModel`/`loadFixtureSource`)
+//   - "unresolved stub nodes carry no source file" (same dependency)
+// Both exercise `content-model`'s own output shape, not `source-edit.ts`
+// logic, so no coverage of this file's exported functions is lost. They
+// should resume here once `content-model` migrates in slice 2.
 
 const COORDS = { owner: 'anokye-labs', repo: 'kbexplorer-template', branch: 'main' };
 
@@ -31,37 +40,16 @@ function nodeWith(sourceFile?: NodeSourceFile): KBNode {
     rawContent: '',
     connections: [],
     source: { type: 'structured', entityType: 'person' },
-    sourceFile,
+    ...(sourceFile !== undefined ? { sourceFile } : {}),
   };
 }
 
 // ── (a) the editor resolves a node's source-of-truth file content ──────────
 
 describe('source-edit — resolving the source-of-truth file (F5 / #152)', () => {
-  it('the content-model builder attaches the underlying file path + raw to entity nodes', () => {
-    const graph = buildContentModel(loadFixtureSource());
-    // Node ids are local keys since #445; the URN rides on `identity`.
-    const ada = graph.nodes.find(n => n.id === 'xbox.com/people/ada');
-    expect(ada?.sourceFile).toBeDefined();
-    // path is repo-relative (content-model root + entity path), never the URN
-    expect(ada?.sourceFile?.path).toBe('content-model/people/ada.yaml');
-    expect(ada?.sourceFile?.format).toBe('yaml');
-    // raw is the verbatim file — editing it keeps the F2 mapping reversible
-    expect(ada?.sourceFile?.raw).toContain('"@type": person');
-    expect(ada?.sourceFile?.raw).toContain('name: Ada Okonkwo');
-  });
-
   it('resolveSourceFile returns the file when present', () => {
     const file: NodeSourceFile = { path: 'content-model/people/ada.yaml', raw: 'id: ada\n', format: 'yaml' };
     expect(resolveSourceFile(nodeWith(file))).toEqual(file);
-  });
-
-  it('unresolved stub nodes carry no source file (nothing to edit)', () => {
-    const graph = buildContentModel(loadFixtureSource());
-    const cto = graph.nodes.find(n => n.id === 'xbox.com/people/cto');
-    expect(cto?.data?.unresolved).toBe(true);
-    expect(cto?.sourceFile).toBeUndefined();
-    expect(canEditSource(cto as KBNode)).toBe(false);
   });
 });
 
@@ -71,7 +59,8 @@ describe('source-edit — GitHub deep-link construction (F5 / #152)', () => {
   it('repoCoordsFromConfig reads owner/repo/branch and defaults branch to main', () => {
     expect(repoCoordsFromConfig(configWith({ owner: 'a', repo: 'b', branch: 'dev' })))
       .toEqual({ owner: 'a', repo: 'b', branch: 'dev' });
-    expect(repoCoordsFromConfig(configWith({ owner: 'a', repo: 'b', branch: undefined })).branch).toBe('main');
+    const configNoBranch = { source: { owner: 'a', repo: 'b' } } as KBConfig;
+    expect(repoCoordsFromConfig(configNoBranch).branch).toBe('main');
     expect(repoCoordsFromConfig(configWith({ owner: 'a', repo: 'b', branch: '  ' })).branch).toBe('main');
   });
 

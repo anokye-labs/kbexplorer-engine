@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { KBConfig } from '../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
 import {
   DEFAULT_STRUCTURED_CONTENT_PATH,
   hasExplicitStructuredContentPath,

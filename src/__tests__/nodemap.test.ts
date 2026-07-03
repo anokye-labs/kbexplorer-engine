@@ -37,9 +37,9 @@ describe('loadNodeMap — single file', () => {
     const nodes = await loadNodeMap(yml, read);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('main');
-    expect(nodes[0].display).toBe('code');
-    expect(nodes[0].source).toEqual({ type: 'file', path: 'src/main.ts' });
+    expect(nodes[0]!.id).toBe('main');
+    expect(nodes[0]!.display).toBe('code');
+    expect(nodes[0]!.source).toEqual({ type: 'file', path: 'src/main.ts' });
   });
 
   it('produces 1 node with authored source for a .md file', async () => {
@@ -49,9 +49,9 @@ describe('loadNodeMap — single file', () => {
     const nodes = await loadNodeMap(yml, read);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('guide');
-    expect(nodes[0].source).toEqual({ type: 'authored', file: 'docs/guide.md' });
-    expect(nodes[0].display).toBeUndefined(); // markdown default, no explicit display
+    expect(nodes[0]!.id).toBe('guide');
+    expect(nodes[0]!.source).toEqual({ type: 'authored', file: 'docs/guide.md' });
+    expect(nodes[0]!.display).toBeUndefined(); // markdown default, no explicit display
   });
 
   it('uses title from entry when provided', async () => {
@@ -61,7 +61,7 @@ describe('loadNodeMap — single file', () => {
     const read = mockReadFile({ 'config.ts': 'export default {};' });
     const nodes = await loadNodeMap(yml, read);
 
-    expect(nodes[0].title).toBe('Configuration');
+    expect(nodes[0]!.title).toBe('Configuration');
   });
 
   it('falls back to basename for title when not provided', async () => {
@@ -70,7 +70,7 @@ describe('loadNodeMap — single file', () => {
     const read = mockReadFile({ 'src/config.ts': 'export default {};' });
     const nodes = await loadNodeMap(yml, read);
 
-    expect(nodes[0].title).toBe('config');
+    expect(nodes[0]!.title).toBe('config');
   });
 
   it('assigns cluster from entry', async () => {
@@ -80,7 +80,7 @@ describe('loadNodeMap — single file', () => {
     const read = mockReadFile({ 'api.ts': '' });
     const nodes = await loadNodeMap(yml, read);
 
-    expect(nodes[0].cluster).toBe('backend');
+    expect(nodes[0]!.cluster).toBe('backend');
   });
 });
 
@@ -112,8 +112,8 @@ describe('loadNodeMap — split headings', () => {
     const nodes = await loadNodeMap(yml, read);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('small');
-    expect(nodes[0].nodeType).toBeUndefined();
+    expect(nodes[0]!.id).toBe('small');
+    expect(nodes[0]!.nodeType).toBeUndefined();
   });
 });
 
@@ -129,10 +129,10 @@ describe('loadNodeMap — merge files', () => {
     const nodes = await loadNodeMap(yml, read);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('merged');
-    expect(nodes[0].display).toBe('file-list');
-    expect(nodes[0].rawContent).toContain('a.ts');
-    expect(nodes[0].rawContent).toContain('b.ts');
+    expect(nodes[0]!.id).toBe('merged');
+    expect(nodes[0]!.display).toBe('file-list');
+    expect(nodes[0]!.rawContent).toContain('a.ts');
+    expect(nodes[0]!.rawContent).toContain('b.ts');
   });
 
   it('returns empty when all merge files are missing', async () => {
@@ -179,7 +179,7 @@ describe('loadNodeMap — glob', () => {
     const nodes = await loadNodeMap(yml, read, list);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('files-public');
+    expect(nodes[0]!.id).toBe('files-public');
   });
 
   it('titleFrom "filename" uses basename', async () => {
@@ -191,7 +191,7 @@ describe('loadNodeMap — glob', () => {
     const list = mockListFiles(['docs/setup.md']);
     const nodes = await loadNodeMap(yml, read, list);
 
-    expect(nodes[0].title).toBe('setup');
+    expect(nodes[0]!.title).toBe('setup');
   });
 
   it('titleFrom "heading" reads first # heading', async () => {
@@ -203,7 +203,7 @@ describe('loadNodeMap — glob', () => {
     const list = mockListFiles(['docs/setup.md']);
     const nodes = await loadNodeMap(yml, read, list);
 
-    expect(nodes[0].title).toBe('Setup Guide');
+    expect(nodes[0]!.title).toBe('Setup Guide');
   });
 
   it('returns empty when no listFiles callback provided', async () => {
@@ -232,10 +232,10 @@ describe('loadNodeMap — directory', () => {
     const nodes = await loadNodeMap(yml, read, undefined, listDir);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('src-tree');
-    expect(nodes[0].display).toBe('tree');
-    expect(nodes[0].rawContent).toContain('📁');
-    expect(nodes[0].rawContent).toContain('📄');
+    expect(nodes[0]!.id).toBe('src-tree');
+    expect(nodes[0]!.display).toBe('tree');
+    expect(nodes[0]!.rawContent).toContain('📁');
+    expect(nodes[0]!.rawContent).toContain('📄');
   });
 
   it('returns empty when no listDirectory callback provided', async () => {

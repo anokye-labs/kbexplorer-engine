@@ -17,7 +17,7 @@ import {
   resolveAccessExclusion,
   type KBAccessLabel,
   type KBNode,
-} from '../types';
+} from '@anokye-labs/kbexplorer-core';
 
 export {
   DEFAULT_ACCESS_EXCLUSION,
@@ -25,7 +25,7 @@ export {
   coerceAccessLabel,
   normalizeAccessLabel,
   isExcludedByDefault,
-} from '../types';
+} from '@anokye-labs/kbexplorer-core';
 
 const TEMPLATE_SENSITIVE_CLASSIFICATIONS = new Set(['restricted', 'confidential', 'unknown']);
 const TEMPLATE_SENSITIVE_VISIBILITIES = new Set(['private']);

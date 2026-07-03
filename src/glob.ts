@@ -2,7 +2,7 @@
 export function globToRegex(pattern: string): RegExp {
   let re = '';
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
+    const c = pattern[i]!;
     if (c === '*' && pattern[i + 1] === '*') {
       re += '.*';
       i += 1;

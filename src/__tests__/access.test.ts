@@ -9,9 +9,8 @@
 import { describe, it, expect } from 'vitest';
 import { isAccessWithheld, filterAccessWithheld, parseAccessLabel } from '../access';
 import { buildGraph } from '../graph';
-import { buildSearchIndex, searchIndex } from '../../search';
 import { parseMarkdownFile } from '../parser';
-import type { KBAccessLabel, KBNode } from '../../types';
+import type { KBAccessLabel, KBNode } from '@anokye-labs/kbexplorer-core';
 
 function makeNode(id: string, overrides: Partial<KBNode> = {}): KBNode {
   return {
@@ -31,7 +30,7 @@ const CLUSTERS = [{ id: 'docs', name: 'Docs', color: '#888888' }];
 describe('isAccessWithheld', () => {
   it('treats an absent label as public', () => {
     expect(isAccessWithheld(makeNode('a'))).toBe(false);
-    expect(isAccessWithheld({ access: undefined })).toBe(false);
+    expect(isAccessWithheld({})).toBe(false);
   });
 
   it.each([
@@ -92,28 +91,6 @@ describe('filterAccessWithheld', () => {
   it('is identity (same reference) when nothing is labeled sensitive', () => {
     const nodes = [makeNode('a'), makeNode('b')];
     expect(filterAccessWithheld(nodes)).toBe(nodes);
-  });
-});
-
-describe('search index — access render-gate', () => {
-  it('a withheld node is not searchable, even by title', () => {
-    const secret = makeNode('secret', {
-      title: 'Zephyr Codename',
-      access: { classification: 'confidential' },
-    });
-    const open = makeNode('open');
-    const index = buildSearchIndex([open, secret]);
-
-    expect(index.entryMap.has('secret')).toBe(false);
-    expect(searchIndex(index, 'zephyr')).toEqual([]);
-    expect(searchIndex(index, 'searchwordsecret')).toEqual([]);
-  });
-
-  it('unlabeled nodes remain searchable', () => {
-    const open = makeNode('open');
-    const index = buildSearchIndex([open, makeNode('secret', { access: { visibility: 'private' } })]);
-    const hits = searchIndex(index, 'searchwordopen');
-    expect(hits.map(h => h.nodeId)).toContain('open');
   });
 });
 
