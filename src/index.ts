@@ -5,12 +5,13 @@
  * This mirrors the shape of template's `src/engine/index.ts` barrel, limited
  * to the symbols originating from the modules that have moved so far
  * (parser/identity pipeline core + node-types from slice 1; providers +
- * content-model + the external-provider plugin loader from slice 2).
+ * content-model + the external-provider plugin loader from slice 2; the pipeline
+ * orchestrator + unified loader, plus the sources/store forward-dependencies
+ * needed to compile it, from slice 3).
  * `loadAuthoredContent`, `loadRepoContent`, and `loadConfig` are intentionally
  * NOT exported here: their bodies were removed from `./parser` in slice 1
  * because they depend on the live GitHub client, which doesn't move until
- * slice 4. The orchestrator, sources, and the store are out of scope for
- * these slices and are not exported here either.
+ * slice 4.
  */
 
 // -- graph.ts ---------------------------------------------------------------
@@ -42,7 +43,7 @@ export {
 export type { IssueToNodeOptions } from './parser';
 
 // -- github-types.ts ----------------------------------------------------------
-export type { GHIssue, GHTreeItem, GHRelease } from './github-types';
+export type { GHIssue, GHTreeItem, GHRelease, GHCommit } from './github-types';
 
 // -- default-config.ts ---------------------------------------------------------
 export { DEFAULT_CONFIG } from './default-config';
@@ -168,3 +169,9 @@ export { loadExternalProviders } from './plugin-loader';
 
 // -- content-model/ ---------------------------------------------------------------------
 export * from './content-model';
+
+// -- orchestrator.ts (slice 3) ------------------------------------------------------------
+export { collectProviderNodes, orchestrate, orchestrateWithTransforms } from './orchestrator';
+
+// -- loader.ts (slice 3) -------------------------------------------------------------------
+export { registerProviders, loadKnowledgeBase } from './loader';

@@ -48,3 +48,17 @@ export interface GHRelease {
   published_at: string;
   prerelease: boolean;
 }
+
+/**
+ * A single commit as returned by the Commits API. Added in slice 3 for
+ * `sources/repo-data.ts`'s `RepoData.commits` field (consumed by `WorkProvider`).
+ */
+export interface GHCommit {
+  sha: string;
+  commit: {
+    message: string;
+    author: { name: string; date: string };
+  };
+  html_url: string;
+  files?: Array<{ filename: string; status: string }>;
+}

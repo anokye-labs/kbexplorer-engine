@@ -14,8 +14,8 @@ import {
   registerBuiltInNodeTypes,
   renderSafeMarkdown,
 } from '../src/index';
-import { GitHubApiSource, ManifestSource, type RepoSource } from '../src/sources';
-import { sqliteProviderResultStore } from '../src/store';
+import { GitHubApiSource, ManifestSource, type RepoData, type RepoSource } from '../src/sources';
+import { resolveGraphStoreOptions } from '../src/store';
 
 describe('package entrypoints', () => {
   it('exports the real slice-1 pipeline-core public API', () => {
@@ -57,13 +57,37 @@ describe('package entrypoints', () => {
     expect(new ManifestSource()).toBeInstanceOf(ManifestSource);
     expect(new GitHubApiSource()).toBeInstanceOf(GitHubApiSource);
 
-    const repoSource: RepoSource = {
-      kind: 'repo',
-      url: 'https://example.test/repo',
-      fetch,
+    const repoData: RepoData = {
+      repo: 'acme/demo-repo',
+      tree: [],
+      authoredContent: {},
+      nodemapRaw: null,
+      listFiles: async () => [],
+      issues: [],
+      pullRequests: [],
+      commits: [],
+      branches: [],
+      repoMetadata: null,
+      releases: [],
+      structuralFiles: {},
+      structuredNodeMapRaw: null,
+      contentModel: null,
+      readme: null,
     };
 
-    expect(repoSource.kind).toBe('repo');
-    expect(sqliteProviderResultStore).toBeDefined();
+    const repoSource: RepoSource = {
+      id: 'entrypoints-smoke',
+      name: 'Entrypoints smoke source',
+      possibleAffordances: ['read'],
+      async retrieve() {
+        return [];
+      },
+      async getRepoData() {
+        return repoData;
+      },
+    };
+
+    expect(repoSource.id).toBe('entrypoints-smoke');
+    expect(resolveGraphStoreOptions().mode).toBe('off');
   });
 });
