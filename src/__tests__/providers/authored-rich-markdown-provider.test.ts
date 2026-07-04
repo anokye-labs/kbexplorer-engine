@@ -1,14 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { AuthoredRichMarkdownProvider } from '../../providers/authored-rich-markdown-provider';
 import { AuthoredProvider } from '../../providers/authored-provider';
-import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 import { DEFAULT_CONFIG } from '../../default-config';
 
-// NOTE (slice 2/5 judgment call): template's `views/rich-markdown` + `views/diagram`
-// pure-logic modules (isRichMarkdownNode/getRichMarkdownDocument/planProseFence) are
-// NOT part of this slice's file list. Assertions/tests that depended on them have
-// been trimmed below rather than pulling those view modules in out-of-scope; see the
-// PR description for the full rationale and the 5 affected cases.
+// NOTE (slice 2/5 judgment call, revised): template's `views/rich-markdown` +
+// `views/diagram` are a `views/` directory — out of scope for this engine repo per
+// #472's disposition table (all React viewers/theme/views stay in template), full
+// stop. This provider (authored-rich-markdown-provider.ts) itself imports ZERO
+// views modules — its rich-Markdown contract is entirely self-contained:
+// `node.data.richMarkdown = { frontmatter, blocks }` (see adaptIngestedNode). The
+// tests below assert directly against that provider-owned output shape rather than
+// importing the views-layer `isRichMarkdownNode` / `getRichMarkdownDocument` /
+// `planProseFence` helpers, which stay in template. See the PR description for the
+// full rationale.
+
+/** Provider-owned rich-Markdown block shape (mirrors adaptIngestedNode's output). */
+interface TestRichMarkdownBlock {
+  kind: string;
+  source: string;
+  hash?: string;
+  range?: { start: number; end: number };
+}
+
+/** Provider-owned rich-Markdown payload shape (`node.data.richMarkdown`). */
+interface TestRichMarkdownDocument {
+  frontmatter?: Record<string, unknown>;
+  blocks: TestRichMarkdownBlock[];
+}
+
+/** Read `node.data.richMarkdown` without any views-layer helper. */
+function richMarkdownDataOf(node: KBNode): TestRichMarkdownDocument | undefined {
+  return (node.data as { richMarkdown?: TestRichMarkdownDocument } | undefined)?.richMarkdown;
+}
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -62,7 +86,11 @@ describe('AuthoredRichMarkdownProvider', () => {
     const node = nodes[0]!;
     expect(node.provider).toBe('authored-rich-markdown');
     expect(node.display).toBe('rich-markdown');
-    // (trimmed: isRichMarkdownNode(node) — see slice-2 rich-markdown view-module note above)
+    // The provider's own contract, not a views-layer concern (see note above):
+    // exactly the two fenced blocks the fixture declares, nothing more/less.
+    const doc = richMarkdownDataOf(node);
+    expect(doc).toBeDefined();
+    expect(doc!.blocks.map((b) => b.kind).sort()).toEqual(['dot', 'mermaid']);
   });
 
   it('emits a distinct local id + canonical content identity (#445 / AF-003)', async () => {
@@ -85,16 +113,52 @@ describe('AuthoredRichMarkdownProvider', () => {
     expect(nodes[0]!.cluster).toBe('docs');
   });
 
-  // (trimmed: 'surfaces frontmatter facts in the structured view payload' — entirely
-  // dependent on getRichMarkdownDocument; see slice-2 rich-markdown view-module note above)
+  it('surfaces frontmatter facts in the structured richMarkdown payload', async () => {
+    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
+    const { nodes } = await provider.resolve(config, []);
 
-  // (trimmed: 'maps embedded blocks to the template contract (kind/source/hash)' —
-  // entirely dependent on getRichMarkdownDocument; see slice-2 rich-markdown view-module
-  // note above)
+    const doc = richMarkdownDataOf(nodes[0]!);
+    expect(doc).toBeDefined();
+    expect(doc!.frontmatter).toMatchObject({
+      title: 'Platform Overview',
+      owner: 'Team Atlas',
+    });
+    expect(doc!.frontmatter!.tags).toEqual(['release', 'ci']);
+  });
 
-  // (trimmed: 'renders the mermaid block live and the dot block via the fallback seam' —
-  // entirely dependent on planProseFence/getRichMarkdownDocument; see slice-2
-  // rich-markdown view-module note above)
+  it('maps embedded blocks to the provider contract (kind/source/hash)', async () => {
+    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
+    const { nodes } = await provider.resolve(config, []);
+
+    const doc = richMarkdownDataOf(nodes[0]!)!;
+    expect(doc.blocks.map((b) => b.kind).sort()).toEqual(['dot', 'mermaid']);
+
+    const mermaid = doc.blocks.find((b) => b.kind === 'mermaid')!;
+    expect(mermaid.source.trim()).toBe(MERMAID_SOURCE);
+    expect(mermaid.hash).toMatch(/^sha256:hex:[0-9a-f]{64}$/);
+    expect(mermaid.range).toBeDefined();
+
+    const dot = doc.blocks.find((b) => b.kind === 'dot')!;
+    expect(dot.source.trim()).toBe(DOT_SOURCE);
+    expect(dot.hash).toMatch(/^sha256:hex:[0-9a-f]{64}$/);
+    expect(dot.hash).not.toBe(mermaid.hash);
+    expect(dot.range).toBeDefined();
+    // The dot fence is declared after the mermaid fence in richDoc, so its
+    // source range must start later.
+    expect(dot.range!.start).toBeGreaterThan(mermaid.range!.start);
+  });
+
+  // DROPPED (not re-expressible against provider output alone): the original
+  // 'renders the mermaid block live and the dot block via the fallback seam'
+  // case asserted on `planProseFence`'s live-vs-fallback render DECISION —
+  // that decision is made entirely by template's views-layer block-renderer
+  // registry (`views/rich-markdown/plan.ts` + `registry.ts`), which this
+  // provider never calls and whose output this provider never produces. There
+  // is no equivalent provider-owned value to assert on in its place, so rather
+  // than pad this file with a hollow stand-in, this case is dropped from
+  // engine's copy entirely. Flagged for template to re-home as an integration
+  // test alongside its shim-swap PR (verifying planProseFence against this
+  // provider's real output), so the coverage isn't silently lost.
 
   it('parses the body into content HTML so prose fences are walkable', async () => {
     const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
@@ -118,8 +182,8 @@ describe('AuthoredRichMarkdownProvider', () => {
     // …and the body it renders from is itself frontmatter-free.
     expect(rawContent).not.toContain('---');
     expect(rawContent).not.toContain('display: rich-markdown');
-    // (trimmed: frontmatter-facts-via-getRichMarkdownDocument assertion — see
-    // slice-2 rich-markdown view-module note above)
+    // The frontmatter facts are still available on the provider's own output.
+    expect(richMarkdownDataOf(nodes[0]!)!.frontmatter).toMatchObject({ owner: 'Team Atlas' });
   });
 
   it('ignores plain authored docs (no rich opt-in)', async () => {
