@@ -24,8 +24,8 @@
  */
 import yaml from 'yaml';
 import { renderSafeMarkdown } from '../safe-markdown';
-import type { Connection, JsonLd, KBEdge, KBNode } from '../../types';
-import { buildJsonLd } from '../../types';
+import type { Connection, JsonLd, KBEdge, KBNode } from '@anokye-labs/kbexplorer-core';
+import { buildJsonLd } from '@anokye-labs/kbexplorer-core';
 import type {
   ContentModelSchema,
   ContentModelSource,
@@ -61,7 +61,7 @@ export interface ContentModelGraph {
 interface EntityEntry {
   kind: string;
   id: string;
-  org?: string;
+  org?: string | undefined;
   urn: string;
   record: EntityRecord;
   /**
@@ -70,9 +70,9 @@ interface EntityEntry {
    * for display so a repo never loses the word it actually used. Undefined when
    * the declared `@type` is already canonical.
    */
-  nativeType?: string;
+  nativeType?: string | undefined;
   /** Companion markdown body (e.g. a sibling `.md`), when the kind declares one. */
-  body?: string;
+  body?: string | undefined;
   /** Path of the entity file relative to the content-model root (e.g. `people/ada.yaml`). */
   path: string;
   /** Verbatim text of the entity file — the editable source of truth (F5 — #152). */
@@ -282,7 +282,8 @@ function emitNode(
   };
   // Single identity mechanism (#445): assignIdentity reuses the schema-minted
   // canonical address carried as the JSON-LD `@id` (buildUrn → context.jsonld).
-  node.identity = assignIdentity(node);
+  const identity = assignIdentity(node);
+  if (identity !== undefined) node.identity = identity;
   return node;
 }
 
@@ -349,7 +350,8 @@ class EdgeResolver {
         data,
         jsonld: buildJsonLd({ id: localId, identity: urn }, targetKind, data, this.ldContext),
       };
-      node.identity = assignIdentity(node);
+      const identity = assignIdentity(node);
+      if (identity !== undefined) node.identity = identity;
       this.stubs.set(urn, node);
       this.nodeByUrn.set(urn, node);
       this.diagnostics.push({
@@ -480,7 +482,7 @@ class EdgeResolver {
         const unique = [...new Set(members)].sort();
         for (let i = 0; i < unique.length; i++) {
           for (let j = i + 1; j < unique.length; j++) {
-            this.addEdge(unique[i], unique[j], rule.relation, rule.description ?? humanize(rule.relation));
+            this.addEdge(unique[i]!, unique[j]!, rule.relation, rule.description ?? humanize(rule.relation));
           }
         }
       }

@@ -17,6 +17,8 @@ export interface GHIssue {
   updated_at: string;
   labels: Array<{ name: string; color?: string }>;
   assignees?: Array<{ login: string }> | null;
+  /** The GitHub user who opened the issue/PR (author). Added in slice 2 for PersonProvider/WorkProvider's author-attribution logic — absent from slice 1's parser-only subset. */
+  user?: { login: string };
   /** Present (and truthy) only when the issue is actually a pull request. */
   pull_request?: unknown;
 }
@@ -32,4 +34,17 @@ export interface GHTreeItem {
   sha?: string;
   /** API URL for this tree entry. Not read by `treeToNodes` itself. */
   url?: string;
+}
+
+/**
+ * A GitHub release as returned by the releases API.
+ * Drafts are excluded; prerelease flag is preserved.
+ */
+export interface GHRelease {
+  tag_name: string;
+  name: string;
+  body: string;
+  html_url: string;
+  published_at: string;
+  prerelease: boolean;
 }

@@ -10,7 +10,7 @@
  * so existing graphs (this repo has no content-model source) are unchanged.
  */
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode } from '../../types';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 import type { ContentModelSource, VocabularyOverlay } from '../content-model';
 import {
   CONTENT_MODEL_PROVIDER,

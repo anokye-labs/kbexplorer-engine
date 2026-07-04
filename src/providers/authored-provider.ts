@@ -3,7 +3,7 @@
  * into a GraphProvider so the engine can orchestrate it alongside other providers.
  */
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode } from '../../types';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 import { parseMarkdownFile } from '../parser';
 import { loadNodeMap } from '../nodemap';
 import { assignIdentity } from '../identity';
@@ -15,10 +15,10 @@ export class AuthoredProvider implements GraphProvider {
   dependencies: string[] = [];
 
   private authoredContent: Record<string, string>;
-  private nodemapRaw?: string | null;
-  private nodemapFiles?: Record<string, string>;
-  private nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>>;
-  private listFiles?: (pattern: string) => Promise<string[]>;
+  private nodemapRaw?: string | null | undefined;
+  private nodemapFiles?: Record<string, string> | undefined;
+  private nodemapDirs?: Record<string, Array<{ path: string; type: 'blob' | 'tree'; size?: number }>> | undefined;
+  private listFiles?: ((pattern: string) => Promise<string[]>) | undefined;
 
   constructor(
     authoredContent: Record<string, string>,

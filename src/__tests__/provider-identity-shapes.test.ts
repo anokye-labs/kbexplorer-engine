@@ -14,8 +14,8 @@
  *     (id, identity) pairs.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { DEFAULT_CONFIG } from '../../types';
-import type { KBNode } from '../../types';
+import { DEFAULT_CONFIG } from '../default-config';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 import { FilesProvider } from '../providers/files-provider';
 import { AuthoredProvider } from '../providers/authored-provider';
 import { AuthoredRichMarkdownProvider } from '../providers/authored-rich-markdown-provider';
@@ -26,7 +26,7 @@ import { ContentModelProvider } from '../providers/content-model-provider';
 import { WikipediaProvider } from '../providers/wikipedia-provider';
 import { OrgChartProvider } from '../providers/orgchart-provider';
 import type { GraphProvider } from '../providers';
-import type { GHIssue } from '../../api';
+import type { GHIssue } from '../github-types';
 import { loadFixtureSource } from '../content-model/__tests__/fixtures';
 
 const config = DEFAULT_CONFIG;

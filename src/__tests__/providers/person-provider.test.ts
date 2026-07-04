@@ -15,9 +15,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PersonProvider } from '../../providers/person-provider';
-import type { GHIssue } from '../../../api';
-import type { KBConfig, KBNode } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
+import type { GHIssue } from '../../github-types';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -30,7 +30,7 @@ function makeIssue(overrides: Partial<GHIssue> & { userLogin?: string } = {}): G
     state: 'open',
     labels: [{ name: 'feature', color: '4A9CC8' }],
     assignees: [],
-    user: userLogin ? { login: userLogin } : undefined,
+    ...(userLogin ? { user: { login: userLogin } } : {}),
     html_url: 'https://github.com/test/repo/issues/1',
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-02T00:00:00Z',
@@ -44,7 +44,7 @@ function makePR(overrides: { number?: number; state?: string; userLogin?: string
     title: `PR #${overrides.number ?? 10}`,
     state: overrides.state ?? 'open',
     html_url: `https://github.com/test/repo/pull/${overrides.number ?? 10}`,
-    user: overrides.userLogin ? { login: overrides.userLogin } : undefined,
+    ...(overrides.userLogin ? { user: { login: overrides.userLogin } } : {}),
     assignees: overrides.assignees ?? [],
   };
 }

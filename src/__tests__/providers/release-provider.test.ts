@@ -11,10 +11,9 @@
 import { describe, it, expect } from 'vitest';
 import { WorkProvider } from '../../providers/work-provider';
 import { buildGraph } from '../../graph';
-import type { GHRelease } from '../../../api';
-import type { KBConfig } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
-import { getNodeLayer } from '../../../representation/graph-layers';
+import type { GHRelease } from '../../github-types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -118,7 +117,10 @@ describe('WorkProvider — release nodes', () => {
 
     const releaseNode = graph.nodes.find(n => n.id === 'release-v5.0.0');
     expect(releaseNode).toBeDefined();
-    expect(getNodeLayer(releaseNode!)).toBe('work');
+    // getNodeLayer(node) in template was `node.layer ?? 'file'` — buildGraph
+    // (moved in slice 1) already stamps `.layer` via resolveNodeLayer, so we
+    // read it directly rather than pulling in template's view-layer helper.
+    expect(releaseNode!.layer).toBe('work');
   });
 });
 

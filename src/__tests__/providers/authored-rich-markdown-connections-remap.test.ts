@@ -68,7 +68,7 @@ const { AuthoredRichMarkdownProvider } = await import(
   '../../providers/authored-rich-markdown-provider'
 );
 const { buildGraph } = await import('../../graph');
-const { DEFAULT_CONFIG } = await import('../../../types');
+const { DEFAULT_CONFIG } = await import('../../default-config');
 
 describe('AuthoredRichMarkdownProvider — intra-fragment connection remap', () => {
   it('remaps connection targets to local ids so inter-node edges survive assembly', async () => {

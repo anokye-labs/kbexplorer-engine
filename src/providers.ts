@@ -1,4 +1,4 @@
-import type { KBNode, KBEdge, KBConfig } from '../types';
+import type { KBNode, KBEdge, KBConfig } from '@anokye-labs/kbexplorer-core';
 
 /** Result produced by a single provider run */
 export interface ProviderResult {

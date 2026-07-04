@@ -1,15 +1,16 @@
 /**
- * Public API — slice 1/5 of the kbexplorer-template → kbexplorer-engine
+ * Public API — slices 1-2/5 of the kbexplorer-template → kbexplorer-engine
  * migration (anokye-labs/kbexplorer-template#472, epic #463).
  *
  * This mirrors the shape of template's `src/engine/index.ts` barrel, limited
  * to the symbols originating from the modules that have moved so far
- * (parser/identity pipeline core + node-types). `loadAuthoredContent`,
- * `loadRepoContent`, and `loadConfig` are intentionally NOT exported here:
- * their bodies were removed from `./parser` in this slice because they
- * depend on the live GitHub client, which doesn't move until slice 4.
- * Providers, the orchestrator, sources, and the store are out of scope for
- * this slice and are not exported here either.
+ * (parser/identity pipeline core + node-types from slice 1; providers +
+ * content-model + the external-provider plugin loader from slice 2).
+ * `loadAuthoredContent`, `loadRepoContent`, and `loadConfig` are intentionally
+ * NOT exported here: their bodies were removed from `./parser` in slice 1
+ * because they depend on the live GitHub client, which doesn't move until
+ * slice 4. The orchestrator, sources, and the store are out of scope for
+ * these slices and are not exported here either.
  */
 
 // -- graph.ts ---------------------------------------------------------------
@@ -41,7 +42,7 @@ export {
 export type { IssueToNodeOptions } from './parser';
 
 // -- github-types.ts ----------------------------------------------------------
-export type { GHIssue, GHTreeItem } from './github-types';
+export type { GHIssue, GHTreeItem, GHRelease } from './github-types';
 
 // -- default-config.ts ---------------------------------------------------------
 export { DEFAULT_CONFIG } from './default-config';
@@ -124,3 +125,46 @@ export {
   resolveTypeCluster,
 } from './node-types';
 export type { NodeTypeDefinition, NodeLayer } from './node-types';
+
+// -- providers.ts (ProviderRegistry) -----------------------------------------
+export { ProviderRegistry } from './providers';
+export type { GraphProvider, ProviderResult } from './providers';
+
+// -- providers/authored-provider.ts ------------------------------------------
+export { AuthoredProvider } from './providers/authored-provider';
+
+// -- providers/authored-rich-markdown-provider.ts -----------------------------
+export { AuthoredRichMarkdownProvider, adaptIngestedNode } from './providers/authored-rich-markdown-provider';
+
+// -- providers/content-model-provider.ts --------------------------------------
+export { ContentModelProvider } from './providers/content-model-provider';
+
+// -- providers/files-provider.ts ----------------------------------------------
+export { FilesProvider } from './providers/files-provider';
+
+// -- providers/orgchart-provider.ts --------------------------------------------
+export { OrgChartProvider } from './providers/orgchart-provider';
+
+// -- providers/person-provider.ts -----------------------------------------------
+export { PersonProvider } from './providers/person-provider';
+export type { PersonProviderPR } from './providers/person-provider';
+
+// -- providers/structural-provider.ts --------------------------------------------
+export {
+  StructuralProvider,
+  registerStructuralTypes,
+  parseCodeowners,
+  buildStructuralFileNode,
+} from './providers/structural-provider';
+
+// -- providers/wikipedia-provider.ts ----------------------------------------------
+export { WikipediaProvider } from './providers/wikipedia-provider';
+
+// -- providers/work-provider.ts -----------------------------------------------------
+export { WorkProvider } from './providers/work-provider';
+
+// -- plugin-loader.ts -----------------------------------------------------------------
+export { loadExternalProviders } from './plugin-loader';
+
+// -- content-model/ ---------------------------------------------------------------------
+export * from './content-model';

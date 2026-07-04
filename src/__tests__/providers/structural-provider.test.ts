@@ -1,13 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StructuralProvider, parseCodeowners, buildStructuralFileNode } from '../../providers/structural-provider';
 import { resetNodeTypeRegistry, resolveType } from '../../node-types';
-import { registerBuiltinViewers, resetViewerRegistry, resolveViewer } from '../../../views/viewers';
-import { WorkflowView } from '../../../views/viewers/WorkflowView';
-import { ActionView } from '../../../views/viewers/ActionView';
-import { SkillView } from '../../../views/viewers/SkillView';
 import { parseStructuredNodeMap } from '../../structured-node-map';
-import type { KBConfig } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -83,8 +79,6 @@ function makeFiles(): Record<string, string> {
 describe('StructuralProvider', () => {
   beforeEach(() => {
     resetNodeTypeRegistry();
-    resetViewerRegistry();
-    registerBuiltinViewers();
   });
 
   it('is a safe no-op when there are no structural files', async () => {
@@ -138,15 +132,13 @@ describe('StructuralProvider', () => {
     expect(wf.data?.jobs).toBeDefined();
   });
 
-  it('registers structural types + bespoke viewers', async () => {
+  it('registers structural types', async () => {
     await new StructuralProvider(makeFiles()).resolve(config, []);
     expect(resolveType('workflow')?.layer).toBe('work');
     expect(resolveType('github-action')?.cluster).toBe('infra');
-    expect(resolveViewer({ entityType: 'workflow', jsonld: undefined })).toBe(WorkflowView);
-    expect(resolveViewer({ entityType: 'github-action', jsonld: undefined })).toBe(ActionView);
   });
 
-  it('discovers a .github/skills/**/SKILL.md as a skill node with a bespoke viewer', async () => {
+  it('discovers a .github/skills/**/SKILL.md as a skill node', async () => {
     const SKILL = `---
 name: kbexplorer
 description: Use when the user asks to set up or explore a knowledge base.
@@ -181,8 +173,6 @@ A [dangerous link](javascript:alert(1)) plus raw <script>alert('xss')</script> m
     // linked to the repository node via a structural relation
     const conn = skill!.connections.find(c => c.to === 'repo-meta');
     expect(conn?.relation).toBe('structural');
-    // resolves to the bespoke SkillView
-    expect(resolveViewer({ entityType: 'skill', jsonld: undefined })).toBe(SkillView);
     expect(resolveType('skill')?.cluster).toBe('infra');
   });
 
@@ -192,7 +182,7 @@ A [dangerous link](javascript:alert(1)) plus raw <script>alert('xss')</script> m
       null,
       'repository',
     ).resolve(config, []);
-    expect(nodes[0].connections[0].to).toBe('repository');
+    expect(nodes[0]!.connections[0]!.to).toBe('repository');
   });
 
   it('routes unrecognised .github config through the declarative node-map', async () => {

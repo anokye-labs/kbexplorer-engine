@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ContentModelProvider } from '../../providers/content-model-provider';
 import { resolveType } from '../../node-types';
-import { registerBuiltinViewers, resolveViewer } from '../../../views/viewers';
-import { SquadView } from '../../../views/viewers/SquadView';
-import { PersonView } from '../../../views/viewers/PersonView';
-import type { KBConfig } from '../../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
 import { loadFixtureSource } from '../../content-model/__tests__/fixtures';
 
 const config = {} as KBConfig;
@@ -30,8 +27,7 @@ describe('ContentModelProvider (T2.4 / #163)', () => {
     expect(squad?.display).toBe('entity');
   });
 
-  it('registers spine node types + bespoke viewers on resolve', async () => {
-    registerBuiltinViewers();
+  it('registers spine node types on resolve', async () => {
     const provider = new ContentModelProvider(loadFixtureSource());
     const { nodes } = await provider.resolve(config, []);
     expect(resolveType('squad')?.layer).toBe('work');
@@ -39,7 +35,7 @@ describe('ContentModelProvider (T2.4 / #163)', () => {
 
     const squad = nodes.find(n => n.entityType === 'squad')!;
     const person = nodes.find(n => n.entityType === 'person')!;
-    expect(resolveViewer(squad)).toBe(SquadView);
-    expect(resolveViewer(person)).toBe(PersonView);
+    expect(squad).toBeDefined();
+    expect(person).toBeDefined();
   });
 });

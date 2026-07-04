@@ -16,8 +16,8 @@
 import yaml from 'yaml';
 import { renderSafeMarkdown } from '../safe-markdown';
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode, NodeSource, Connection } from '../../types';
-import { buildJsonLd } from '../../types';
+import type { KBConfig, KBNode, NodeSource, Connection } from '@anokye-labs/kbexplorer-core';
+import { buildJsonLd } from '@anokye-labs/kbexplorer-core';
 import { registerType } from '../node-types';
 import { urnIdentity } from '../identity';
 import {
@@ -107,11 +107,11 @@ interface BuildArgs {
   source: NodeSource;
   identity: string;
   emoji: string;
-  data?: Record<string, unknown>;
-  ldProps?: Record<string, unknown>;
-  content?: string;
-  rawContent?: string;
-  display?: KBNode['display'];
+  data?: Record<string, unknown> | undefined;
+  ldProps?: Record<string, unknown> | undefined;
+  content?: string | undefined;
+  rawContent?: string | undefined;
+  display?: KBNode['display'] | undefined;
   repoNodeId: string;
 }
 
@@ -123,14 +123,14 @@ function buildStructuralNode(args: BuildArgs): KBNode {
     content: args.content ?? '',
     rawContent: args.rawContent ?? '',
     emoji: args.emoji,
-    display: args.display,
+    ...(args.display !== undefined ? { display: args.display } : {}),
     connections: [structuralConnection(args.repoNodeId, `${args.title} configures the repository`)],
     identity: args.identity,
     derived: true,
     source: args.source,
     provider: 'structural',
     entityType: args.entityType,
-    data: args.data,
+    ...(args.data !== undefined ? { data: args.data } : {}),
     jsonld: buildJsonLd({ id: args.id, identity: args.identity }, args.ldType, args.ldProps ?? {}),
   };
 }
@@ -139,8 +139,8 @@ function parseFrontmatter(raw: string): { data: Record<string, unknown>; body: s
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) return { data: {}, body: raw };
   try {
-    const data = yaml.parse(match[1]) as Record<string, unknown>;
-    return { data: data ?? {}, body: match[2] };
+    const data = yaml.parse(match[1] ?? '') as Record<string, unknown>;
+    return { data: data ?? {}, body: match[2] ?? '' };
   } catch {
     return { data: {}, body: raw };
   }

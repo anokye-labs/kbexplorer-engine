@@ -24,7 +24,7 @@
  * local modules and (later) third-party npm packages.
  */
 import type { GraphProvider, ProviderResult } from './providers'
-import type { ExternalProviderConfig, KBConfig, KBNode } from '../types'
+import type { ExternalProviderConfig, KBConfig, KBNode } from '@anokye-labs/kbexplorer-core'
 import type {
   GraphProvider as CoreGraphProvider,
   ProviderCapability,
@@ -80,7 +80,7 @@ function adaptCoreProvider(provider: CoreGraphProvider): GraphProvider {
   return {
     id: provider.id,
     name: provider.name,
-    dependencies: provider.dependencies,
+    dependencies: provider.dependencies ?? [],
     async resolve(config: KBConfig, existingNodes: KBNode[]): Promise<ProviderResult> {
       const { nodes, edges } = await provider.resolve({ config, existingNodes })
       return { nodes, edges }

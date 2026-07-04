@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ProviderRegistry, type GraphProvider, type ProviderResult } from '../providers';
-import type { KBConfig, KBNode } from '../../types';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 
 function stubProvider(
   id: string,

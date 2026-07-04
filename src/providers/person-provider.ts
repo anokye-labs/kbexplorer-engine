@@ -18,9 +18,9 @@
 import { renderSafeMarkdown } from '../safe-markdown';
 import { buildPersonAddress, type SourceRef } from '@anokye-labs/kbexplorer-core';
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode, KBEdge, Connection } from '../../types';
+import type { KBConfig, KBNode, KBEdge, Connection } from '@anokye-labs/kbexplorer-core';
 import { assignIdentity, urnIdentity } from '../identity';
-import type { GHIssue } from '../../api';
+import type { GHIssue } from '../github-types';
 
 type WorkPullRequestForPerson = {
   number: number;
@@ -205,7 +205,7 @@ export class PersonProvider implements GraphProvider {
             from: descriptor.id,
             to: conn.to,
             type: 'related',
-            relation: conn.relation,
+            ...(conn.relation ? { relation: conn.relation } : {}),
             description: conn.description ?? '',
             source: 'inferred',
             weight: 1.5,
@@ -280,7 +280,8 @@ export class PersonProvider implements GraphProvider {
           activePRCount: uniquePRs.length,
         },
       };
-      personNode.identity = assignIdentity(personNode);
+      const identity = assignIdentity(personNode);
+      if (identity !== undefined) personNode.identity = identity;
 
       nodes.push(personNode);
 
@@ -290,7 +291,7 @@ export class PersonProvider implements GraphProvider {
           from: nodeId,
           to: conn.to,
           type: 'related',
-          relation: conn.relation,
+          ...(conn.relation ? { relation: conn.relation } : {}),
           description: conn.description ?? '',
           source: 'inferred',
           weight: 1.5,

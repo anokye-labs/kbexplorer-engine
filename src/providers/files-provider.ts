@@ -4,8 +4,8 @@
  * Edges are implicit via `contains` connections on each node.
  */
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode } from '../../types';
-import type { GHTreeItem } from '../../api';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
+import type { GHTreeItem } from '../github-types';
 import { treeToNodes } from '../parser';
 import { assignIdentity } from '../identity';
 
@@ -16,7 +16,7 @@ export class FilesProvider implements GraphProvider {
 
   private treeItems: GHTreeItem[];
   private repoName: string;
-  private excludePaths?: string[];
+  private excludePaths?: string[] | undefined;
 
   constructor(
     treeItems: GHTreeItem[],
@@ -34,7 +34,8 @@ export class FilesProvider implements GraphProvider {
     for (const node of nodes) {
       node.provider = 'files';
       if (!node.identity) {
-        node.identity = assignIdentity(node);
+        const identity = assignIdentity(node);
+        if (identity !== undefined) node.identity = identity;
       }
     }
 

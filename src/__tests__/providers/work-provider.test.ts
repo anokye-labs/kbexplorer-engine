@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { WorkProvider } from '../../providers/work-provider';
-import type { GHIssue } from '../../../api';
-import type { KBConfig } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
+import type { GHIssue } from '../../github-types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 

@@ -6,10 +6,10 @@
  */
 import { renderSafeMarkdown } from '../safe-markdown';
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { Connection, KBConfig, KBNode } from '../../types';
+import type { Connection, KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 import { issueToNode, extractIssueRefs } from '../parser';
 import { assignIdentity } from '../identity';
-import type { GHIssue, GHRelease } from '../../api';
+import type { GHIssue, GHRelease } from '../github-types';
 
 const DATE_FORMAT = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
 const SHORT_DATE_FORMAT = { month: 'short', day: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
@@ -91,10 +91,11 @@ export class WorkProvider implements GraphProvider {
       const node = issueToNode(issue, {
         knownIssueNumbers,
         knownPrNumbers,
-        repoNodeId,
+        ...(repoNodeId !== undefined ? { repoNodeId } : {}),
       });
       node.provider = 'work';
-      node.identity = assignIdentity(node);
+      const identity = assignIdentity(node);
+      if (identity !== undefined) node.identity = identity;
       nodes.push(node);
     }
 
@@ -176,7 +177,8 @@ export class WorkProvider implements GraphProvider {
         provider: 'work',
       };
       if (repoNodeId) prNode.parent = repoNodeId;
-      prNode.identity = assignIdentity(prNode);
+      const prIdentity = assignIdentity(prNode);
+      if (prIdentity !== undefined) prNode.identity = prIdentity;
       nodes.push(prNode);
     }
 
@@ -278,7 +280,7 @@ export class WorkProvider implements GraphProvider {
         rawContent: repoContent,
         emoji: 'Organization',
         display: 'repository',
-        image: meta.owner.avatar_url || undefined,
+        ...(meta.owner.avatar_url ? { image: meta.owner.avatar_url } : {}),
         connections: repoConns,
         source: { type: 'repository', owner: meta.owner.login, repo: meta.name },
         provider: 'work',
@@ -392,7 +394,8 @@ export class WorkProvider implements GraphProvider {
           prerelease: release.prerelease,
         },
       };
-      releaseNode.identity = assignIdentity(releaseNode);
+      const releaseIdentity = assignIdentity(releaseNode);
+      if (releaseIdentity !== undefined) releaseNode.identity = releaseIdentity;
       nodes.push(releaseNode);
     }
 

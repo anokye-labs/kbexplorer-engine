@@ -32,7 +32,7 @@ import {
   type IngestedBlock,
 } from '@anokye-labs/kbexplorer-provider-rich-markdown/lib';
 import type { GraphProvider, ProviderResult } from '../providers';
-import type { KBConfig, KBNode, KBEdge } from '../../types';
+import type { KBConfig, KBNode, KBEdge } from '@anokye-labs/kbexplorer-core';
 import { assignIdentity } from '../identity';
 import { isRichAuthoredMarkdown } from './rich-markdown/detect';
 
@@ -126,7 +126,8 @@ export function adaptIngestedNode(ingested: IngestedNode): KBNode {
       richMarkdown: { frontmatter, blocks },
     },
   };
-  node.identity = assignIdentity(node);
+  const identity = assignIdentity(node);
+  if (identity !== undefined) node.identity = identity;
 
   if (ingested.emoji != null) node.emoji = ingested.emoji;
   if (ingested.parent != null) node.parent = ingested.parent;

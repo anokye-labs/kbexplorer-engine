@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AuthoredProvider } from '../../providers/authored-provider';
-import type { KBConfig } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -22,10 +22,10 @@ describe('AuthoredProvider', () => {
     const { nodes } = await provider.resolve(config, []);
 
     expect(nodes).toHaveLength(1);
-    expect(nodes[0].id).toBe('intro');
-    expect(nodes[0].title).toBe('Introduction');
-    expect(nodes[0].cluster).toBe('docs');
-    expect(nodes[0].content).toContain('<h1>');
+    expect(nodes[0]!.id).toBe('intro');
+    expect(nodes[0]!.title).toBe('Introduction');
+    expect(nodes[0]!.cluster).toBe('docs');
+    expect(nodes[0]!.content).toContain('<h1>');
   });
 
   it('tags nodes with provider: authored', async () => {
@@ -41,7 +41,7 @@ describe('AuthoredProvider', () => {
     const provider = new AuthoredProvider({ 'content/intro.md': sampleMarkdown });
     const { nodes } = await provider.resolve(config, []);
 
-    expect(nodes[0].identity).toBe('urn:content:intro');
+    expect(nodes[0]!.identity).toBe('urn:content:intro');
   });
 
   it('processes nodemap entries when provided', async () => {
@@ -81,6 +81,6 @@ describe('AuthoredProvider', () => {
 
     // Should still parse the authored content
     expect(nodes.length).toBeGreaterThan(0);
-    expect(nodes[0].id).toBe('intro');
+    expect(nodes[0]!.id).toBe('intro');
   });
 });

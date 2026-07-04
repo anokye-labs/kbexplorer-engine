@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { FilesProvider } from '../../providers/files-provider';
-import type { GHTreeItem } from '../../../api';
-import type { KBConfig } from '../../../types';
-import { DEFAULT_CONFIG } from '../../../types';
+import type { GHTreeItem } from '../../github-types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 
 function makeTreeItem(path: string, type: 'blob' | 'tree' = 'blob'): GHTreeItem {
   return { path, mode: '100644', type, sha: 'abc123', size: 100, url: '' };

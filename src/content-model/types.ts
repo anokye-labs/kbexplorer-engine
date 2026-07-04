@@ -22,7 +22,7 @@ export type FkFlavor = 'scalar' | 'array' | 'composite' | 'alias';
 /** One org declared in `teamops.yaml`. */
 export interface OrgDef {
   id: string;
-  name?: string;
+  name?: string | undefined;
   /** Whether this is the home/default org (its entities are stored flat). */
   default?: boolean;
 }
@@ -50,14 +50,14 @@ export interface KindConvention {
    */
   orgScoped: boolean;
   /** Field carrying this kind's alias handle (the target of an `alias` FK). */
-  aliasField?: string;
+  aliasField?: string | undefined;
   /**
    * Fields copied verbatim into `data`. When omitted, **all** fields pass
    * through (the default), which keeps the field→data mapping reversible.
    */
-  passthrough?: string[];
+  passthrough?: string[] | undefined;
   /** Sibling-file extension whose content is merged as the node body (e.g. `.md`). */
-  companionExt?: string;
+  companionExt?: string | undefined;
 }
 
 /** `schema/conventions.yaml` — per-kind storage + mapping. */
@@ -125,7 +125,7 @@ export interface Lifecycle {
 /** Parsed `index/context.jsonld` — CURIE prefix → URN base. */
 export interface JsonLdContext {
   /** The `@base` keyword, when present. */
-  base?: string;
+  base?: string | undefined;
   /** prefix → URN base (full, e.g. `kg://xbox.com/squads/`). */
   prefixes: Record<string, string>;
 }

@@ -8,8 +8,7 @@
  *
  * Idempotent: registering the same id twice replaces the prior entry.
  */
-import type { NodeLayer } from '../../types';
-import { registerType } from '../node-types';
+import { registerType, type NodeLayer } from '../node-types';
 
 interface SpineKind {
   id: string;

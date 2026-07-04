@@ -23,7 +23,7 @@
  *             connections: [app-shell, hud]
  */
 import type { GraphProvider, ProviderResult } from '../providers'
-import type { KBConfig, KBNode, ExternalProviderConfig } from '../../types'
+import type { KBConfig, KBNode, ExternalProviderConfig } from '@anokye-labs/kbexplorer-core'
 import { assignIdentity } from '../identity'
 
 interface PersonConfig {
@@ -89,7 +89,8 @@ export class OrgChartProvider implements GraphProvider {
       }
       // AF-042: external nodes carry a provider-scoped identity so they
       // participate in cross-provider identity indexing like every other node.
-      node.identity = assignIdentity(node)
+      const identity = assignIdentity(node)
+      if (identity !== undefined) node.identity = identity
       nodes.push(node)
     }
 

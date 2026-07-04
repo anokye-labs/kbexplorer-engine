@@ -73,14 +73,14 @@ describe('schema reader (T2.1 / #160)', () => {
   it('parses edge rules, derived rules and deprecated rules', () => {
     expect(schema.edges.edges.find(e => e.id === 'squad-members')?.fk).toBe('array');
     expect(schema.edges.edges.find(e => e.id === 'mission-assignment')?.fk).toBe('composite');
-    expect(schema.edges.derived[0].type).toBe('shared-target');
-    expect(schema.edges.deprecated[0].relation).toBe('deprecated');
+    expect(schema.edges.derived[0]!.type).toBe('shared-target');
+    expect(schema.edges.deprecated[0]!.relation).toBe('deprecated');
   });
 
   it('reads conventions with the type field never path-derived', () => {
     expect(schema.conventions.typeField).toBe('@type');
     expect(schema.conventions.idField).toBe('id');
-    expect(schema.conventions.kinds.squad.path).toBe('squads');
-    expect(schema.conventions.kinds.person.aliasField).toBe('alias');
+    expect(schema.conventions.kinds.squad!.path).toBe('squads');
+    expect(schema.conventions.kinds.person!.aliasField).toBe('alias');
   });
 });

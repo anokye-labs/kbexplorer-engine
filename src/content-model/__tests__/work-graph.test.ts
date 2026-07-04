@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildContentModel } from '../builder';
 import { urnLocalId } from '../schema-reader';
-import type { KBEdge, KBNode } from '../../../types';
+import type { KBEdge, KBNode } from '@anokye-labs/kbexplorer-core';
 import { loadFixtureSource } from './fixtures';
 import type { ContentModelSource } from '../types';
 

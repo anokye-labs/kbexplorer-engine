@@ -21,7 +21,7 @@ const DISPLAY_RE = /^\s*display\s*:\s*(?:"([^"]*)"|'([^']*)'|([^\s#]+))/m;
 export function readFrontmatterDisplay(raw: string): string | undefined {
   const fm = FRONTMATTER_RE.exec(raw);
   if (!fm) return undefined;
-  const m = DISPLAY_RE.exec(fm[1]);
+  const m = DISPLAY_RE.exec(fm[1] ?? '');
   if (!m) return undefined;
   const value = (m[1] ?? m[2] ?? m[3] ?? '').trim();
   return value || undefined;

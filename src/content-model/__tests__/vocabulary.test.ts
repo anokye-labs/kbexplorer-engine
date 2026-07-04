@@ -13,11 +13,7 @@ import { buildContentModel, type ContentModelGraph } from '../builder';
 import { readContentModelSchema, canonicalKind, urnLocalId } from '../schema-reader';
 import type { ContentModelSource, Vocabulary } from '../types';
 import { loadFixtureSource } from './fixtures';
-import { registerContentModelTypes } from '../register';
-import { registerBuiltinViewers, resolveViewer } from '../../../views/viewers';
-import { SquadView } from '../../../views/viewers/SquadView';
-import { GenericStructuredView } from '../../../views/viewers/GenericStructuredView';
-import type { KBNode } from '../../../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 
 const CELL = 'kg://xbox.com/squads/personalization/night-owls';
 const CREW = 'kg://xbox.com/squads/xcloud/dawn-crew';
@@ -84,14 +80,6 @@ describe('cross-repo vocabulary — alias canonicalization (#153)', () => {
     // the canonical URN is the identity, the node id is its local key (#445).
     expect(cell.identity).toBe(CELL);
     expect(cell.id).toBe(lid(CELL));
-  });
-
-  it('routes the aliased node to the canonical kind\'s bespoke viewer (SquadView)', () => {
-    registerBuiltinViewers();
-    registerContentModelTypes();
-    const cell = nodeOf(graph, CELL);
-    expect(resolveViewer(cell)).toBe(SquadView);
-    expect(resolveViewer(cell)).not.toBe(GenericStructuredView);
   });
 
   it('preserves the repo\'s native term (cell) on `data` and `jsonld.nativeType`', () => {

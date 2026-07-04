@@ -78,7 +78,7 @@ function parseTeamOps(raw: string | undefined, diags: Diagnostic[]): TeamOps {
   const authority = String(identity.authority ?? '');
   let defaultOrg = String(identity.defaultOrg ?? identity.org ?? orgs.find(o => o.default)?.id ?? '');
   if (!authority) diags.push({ level: 'error', code: 'missing-authority', message: 'teamops.yaml has no identity.authority' });
-  if (!defaultOrg && orgs.length > 0) defaultOrg = orgs[0].id;
+  if (!defaultOrg && orgs.length > 0) defaultOrg = orgs[0]!.id;
   return { authority, defaultOrg, orgs };
 }
 
@@ -166,7 +166,7 @@ function parseContext(raw: string | undefined, diags: Diagnostic[]): JsonLdConte
 // ── Cross-repo vocabulary / synonym layer (#153) ───────────
 
 /**
- * Extract alias → canonical mappings from a JSON-LD-shaped document whose
+ * Extract alias → canonical mappings from a JSON-LD-shaped payload whose
  * `@context` aliases per-repo terms to a canonical kind. Each entry's value is
  * either a bare canonical term (`"cell": "squad"`) or a `{ "@id": "squad" }`
  * object — mirroring how {@link parseContext} reads prefix definitions, so the
@@ -195,9 +195,9 @@ function aliasesFromContext(doc: Record<string, unknown>): Record<string, string
 }
 
 /**
- * Parse a raw `vocabulary.jsonld` document into alias → canonical mappings.
+ * Parse a raw `vocabulary.jsonld` payload into alias → canonical mappings.
  *
- * `sourceLabel` names the document in diagnostics so an invalid **overlay**
+ * `sourceLabel` names the source in diagnostics so an invalid **overlay**
  * (supplied independently of any repo file) is not misattributed to the repo's
  * `index/vocabulary.jsonld` path.
  */

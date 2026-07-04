@@ -22,7 +22,7 @@ declare module '@anokye-labs/kbexplorer-provider-rich-markdown/lib' {
     sourceRef?: unknown;
   }
 
-  /** The one-node graph fragment a single document ingests to. */
+  /** The one-node graph fragment a single source file ingests to. */
   export interface IngestedNode {
     id: string;
     title: string;

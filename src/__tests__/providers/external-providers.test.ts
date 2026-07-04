@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { WikipediaProvider } from '../../providers/wikipedia-provider'
 import { OrgChartProvider } from '../../providers/orgchart-provider'
 import { loadExternalProviders } from '../../plugin-loader'
-import type { ExternalProviderConfig } from '../../../types'
-import { DEFAULT_CONFIG } from '../../../types'
+import type { ExternalProviderConfig } from '@anokye-labs/kbexplorer-core'
+import { DEFAULT_CONFIG } from '../../default-config'
 import { PROVIDER_API_VERSION } from '@anokye-labs/kbexplorer-core'
 
 // ── WikipediaProvider ──────────────────────────────────────
@@ -41,12 +41,12 @@ describe('WikipediaProvider', () => {
     const result = await provider.resolve(DEFAULT_CONFIG, [])
 
     expect(result.nodes).toHaveLength(1)
-    expect(result.nodes[0].id).toBe('wiki-knowledge-graph')
-    expect(result.nodes[0].title).toBe('Knowledge graph')
-    expect(result.nodes[0].cluster).toBe('reference')
-    expect(result.nodes[0].source).toEqual({ type: 'external', provider: 'wikipedia-reference' })
-    expect(result.nodes[0].connections).toHaveLength(1)
-    expect(result.nodes[0].connections[0].to).toBe('graph-engine')
+    expect(result.nodes[0]!.id).toBe('wiki-knowledge-graph')
+    expect(result.nodes[0]!.title).toBe('Knowledge graph')
+    expect(result.nodes[0]!.cluster).toBe('reference')
+    expect(result.nodes[0]!.source).toEqual({ type: 'external', provider: 'wikipedia-reference' })
+    expect(result.nodes[0]!.connections).toHaveLength(1)
+    expect(result.nodes[0]!.connections[0]!.to).toBe('graph-engine')
   })
 
   it('uses custom id when provided', async () => {
@@ -66,7 +66,7 @@ describe('WikipediaProvider', () => {
     })
     const result = await provider.resolve(DEFAULT_CONFIG, [])
 
-    expect(result.nodes[0].id).toBe('react-framework')
+    expect(result.nodes[0]!.id).toBe('react-framework')
   })
 
   it('handles fetch failures gracefully', async () => {
@@ -105,10 +105,10 @@ describe('OrgChartProvider', () => {
     const result = await provider.resolve(DEFAULT_CONFIG, [])
 
     expect(result.nodes).toHaveLength(2)
-    expect(result.nodes[0].id).toBe('org-ceo')
-    expect(result.nodes[0].title).toBe('Jane Smith')
-    expect(result.nodes[1].id).toBe('org-vp')
-    expect(result.nodes[1].connections).toEqual([
+    expect(result.nodes[0]!.id).toBe('org-ceo')
+    expect(result.nodes[0]!.title).toBe('Jane Smith')
+    expect(result.nodes[1]!.id).toBe('org-vp')
+    expect(result.nodes[1]!.connections).toEqual([
       { to: 'org-ceo', description: 'Reports to' },
     ])
   })
@@ -124,7 +124,7 @@ describe('OrgChartProvider', () => {
     })
     const result = await provider.resolve(DEFAULT_CONFIG, [])
 
-    expect(result.nodes[0].connections).toEqual([
+    expect(result.nodes[0]!.connections).toEqual([
       { to: 'app-shell', description: 'Owns' },
       { to: 'hud', description: 'Owns' },
     ])
@@ -151,8 +151,8 @@ describe('loadExternalProviders', () => {
 
     const providers = await loadExternalProviders(configs)
     expect(providers).toHaveLength(2)
-    expect(providers[0].id).toBe('wikipedia-wiki')
-    expect(providers[1].id).toBe('orgchart-team')
+    expect(providers[0]!.id).toBe('wikipedia-wiki')
+    expect(providers[1]!.id).toBe('orgchart-team')
   })
 
   it('warns and skips a custom type with no module specifier', async () => {
@@ -192,15 +192,15 @@ describe('loadExternalProviders', () => {
     ])
 
     expect(providers).toHaveLength(1)
-    expect(providers[0].id).toBe('glossary-glossary')
+    expect(providers[0]!.id).toBe('glossary-glossary')
 
-    const result = await providers[0].resolve(DEFAULT_CONFIG, [])
+    const result = await providers[0]!.resolve(DEFAULT_CONFIG, [])
     expect(result.nodes).toHaveLength(1)
-    expect(result.nodes[0].id).toBe('glossary-knowledge-graph')
-    expect(result.nodes[0].title).toBe('Knowledge Graph')
-    expect(result.nodes[0].cluster).toBe('reference')
-    expect(result.nodes[0].source).toEqual({ type: 'external', provider: 'glossary-glossary' })
-    expect(result.nodes[0].connections).toEqual([
+    expect(result.nodes[0]!.id).toBe('glossary-knowledge-graph')
+    expect(result.nodes[0]!.title).toBe('Knowledge Graph')
+    expect(result.nodes[0]!.cluster).toBe('reference')
+    expect(result.nodes[0]!.source).toEqual({ type: 'external', provider: 'glossary-glossary' })
+    expect(result.nodes[0]!.connections).toEqual([
       { to: 'graph-engine', description: 'Defines' },
     ])
   })
@@ -251,15 +251,15 @@ describe('loadExternalProviders', () => {
     ])
 
     expect(providers).toHaveLength(1)
-    expect(providers[0].id).toBe('quotes-quotes')
+    expect(providers[0]!.id).toBe('quotes-quotes')
 
-    const result = await providers[0].resolve(DEFAULT_CONFIG, [])
+    const result = await providers[0]!.resolve(DEFAULT_CONFIG, [])
     expect(result.nodes).toHaveLength(1)
-    expect(result.nodes[0].id).toBe('quote-kay')
-    expect(result.nodes[0].title).toBe('Alan Kay')
-    expect(result.nodes[0].cluster).toBe('reference')
-    expect(result.nodes[0].source).toEqual({ type: 'external', provider: 'quotes-quotes' })
-    expect(result.nodes[0].connections).toEqual([
+    expect(result.nodes[0]!.id).toBe('quote-kay')
+    expect(result.nodes[0]!.title).toBe('Alan Kay')
+    expect(result.nodes[0]!.cluster).toBe('reference')
+    expect(result.nodes[0]!.source).toEqual({ type: 'external', provider: 'quotes-quotes' })
+    expect(result.nodes[0]!.connections).toEqual([
       { to: 'graph-engine', description: 'Quoted in' },
     ])
   })
