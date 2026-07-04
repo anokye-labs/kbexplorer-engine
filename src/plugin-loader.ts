@@ -35,6 +35,8 @@ import {
   PROVIDER_API_VERSION,
   checkProviderCompatibility,
 } from '@anokye-labs/kbexplorer-core'
+import { isAbsolute, resolve, sep as pathSep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { WikipediaProvider } from './providers/wikipedia-provider'
 import { OrgChartProvider } from './providers/orgchart-provider'
 
@@ -52,6 +54,37 @@ const HOST_CONTRACT: ProviderHostContract = {
 
 /** How a `module` specifier resolves (or why it is refused). */
 type SpecifierKind = 'local' | 'bare' | 'rejected'
+
+export interface LoadExternalProvidersOptions {
+  importBaseUrl?: string | URL
+}
+
+function resolveImportBaseUrl(importBaseUrl: string | URL): URL {
+  if (importBaseUrl instanceof URL) {
+    const normalizedBaseUrl = new URL(importBaseUrl.href)
+    if (normalizedBaseUrl.protocol === 'file:' && !normalizedBaseUrl.pathname.endsWith('/')) {
+      normalizedBaseUrl.pathname = `${normalizedBaseUrl.pathname}/`
+    }
+    return normalizedBaseUrl
+  }
+
+  if (importBaseUrl.startsWith('file:')) {
+    const normalizedBaseUrl = new URL(importBaseUrl)
+    if (normalizedBaseUrl.protocol === 'file:' && !normalizedBaseUrl.pathname.endsWith('/')) {
+      normalizedBaseUrl.pathname = `${normalizedBaseUrl.pathname}/`
+    }
+    return normalizedBaseUrl
+  }
+
+  const absolutePath = isAbsolute(importBaseUrl)
+    ? importBaseUrl
+    : resolve(importBaseUrl)
+  const normalizedPath = absolutePath.endsWith(pathSep)
+    ? absolutePath
+    : `${absolutePath}${pathSep}`
+
+  return pathToFileURL(normalizedPath)
+}
 
 /**
  * Classify a `module` specifier. Relative paths are local; bare package names
@@ -95,6 +128,7 @@ function adaptCoreProvider(provider: CoreGraphProvider): GraphProvider {
  */
 async function loadModuleProvider(
   config: ExternalProviderConfig,
+  options?: LoadExternalProvidersOptions,
 ): Promise<GraphProvider | null> {
   const specifier = config.module
   if (!specifier) return null
@@ -107,8 +141,14 @@ async function loadModuleProvider(
     )
     return null
   }
+
+  const importTarget =
+    classifySpecifier(specifier) === 'local' && options?.importBaseUrl
+      ? new URL(specifier, resolveImportBaseUrl(options.importBaseUrl)).href
+      : specifier
+
   try {
-    const mod = (await import(/* @vite-ignore */ specifier)) as Partial<ProviderModule>
+    const mod = (await import(/* @vite-ignore */ importTarget)) as Partial<ProviderModule>
     const factory = mod.default
     if (typeof factory !== 'function') {
       console.warn(
@@ -140,13 +180,14 @@ async function loadModuleProvider(
  */
 export async function loadExternalProviders(
   configs: ExternalProviderConfig[],
+  options?: LoadExternalProvidersOptions,
 ): Promise<GraphProvider[]> {
   const providers: GraphProvider[] = []
 
   for (const config of configs) {
     // A module specifier takes precedence and works for any `type`.
     if (config.module) {
-      const provider = await loadModuleProvider(config)
+      const provider = await loadModuleProvider(config, options)
       if (provider) providers.push(provider)
       continue
     }
