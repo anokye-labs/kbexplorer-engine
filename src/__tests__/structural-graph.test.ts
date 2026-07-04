@@ -5,9 +5,8 @@ import { StructuralProvider } from '../providers/structural-provider';
 import { WorkProvider } from '../providers/work-provider';
 import { buildGraph } from '../graph';
 import { resetNodeTypeRegistry } from '../node-types';
-import { resetViewerRegistry } from '../../views/viewers';
-import type { KBConfig } from '../../types';
-import { DEFAULT_CONFIG } from '../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../default-config';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -37,7 +36,6 @@ const repoMetadata = {
 describe('structural graph integration (#167)', () => {
   beforeEach(() => {
     resetNodeTypeRegistry();
-    resetViewerRegistry();
   });
 
   it('materialises a structural edge from a .github workflow node to the repository node', async () => {

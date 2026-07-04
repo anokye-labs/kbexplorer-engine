@@ -14,7 +14,7 @@
  * consumes to build the graph.
  */
 import type { Source } from '@anokye-labs/kbexplorer-core';
-import type { GHIssue, GHTreeItem, GHCommit, GHRelease } from '../../api';
+import type { GHIssue, GHTreeItem, GHCommit, GHRelease } from '../github-types';
 import type { ContentModelSource } from '../content-model';
 
 /** Pull request shape consumed by the work + person providers (superset). */

@@ -1,8 +1,8 @@
-import type { KBConfig, ContentHash, GraphStoreCacheKey } from '../../types';
+import type { KBConfig, ContentHash, GraphStoreCacheKey } from '@anokye-labs/kbexplorer-core';
 import {
   GRAPH_STORE_API_VERSION,
   GRAPH_STORE_CACHE_KEY_VERSION,
-} from '../../types';
+} from '@anokye-labs/kbexplorer-core';
 import type { RepoData, RepoSource } from '../sources/repo-data';
 
 // v3: #452 — the shared defensive markdown renderer switched from escape-all to

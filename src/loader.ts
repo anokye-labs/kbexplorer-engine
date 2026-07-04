@@ -9,7 +9,7 @@
  * bundle actually carries, so each source produces byte-identical output to its
  * former dedicated loader.
  */
-import type { KBGraph, KBConfig } from '../types';
+import type { KBGraph, KBConfig } from '@anokye-labs/kbexplorer-core';
 import { ProviderRegistry } from './providers';
 import { FilesProvider } from './providers/files-provider';
 import { AuthoredProvider } from './providers/authored-provider';
@@ -56,8 +56,8 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
     html_url: pr.html_url,
     created_at: pr.created_at,
     updated_at: pr.updated_at,
-    head_branch: pr.head_branch,
-    user: pr.user,
+    ...(pr.head_branch !== undefined ? { head_branch: pr.head_branch } : {}),
+    ...(pr.user !== undefined ? { user: pr.user } : {}),
   }));
   registry.register(new WorkProvider(
     data.issues,
@@ -75,8 +75,8 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
       title: pr.title,
       state: pr.state,
       html_url: pr.html_url,
-      user: pr.user,
-      assignees: pr.assignees,
+      ...(pr.user !== undefined ? { user: pr.user } : {}),
+      ...(pr.assignees !== undefined ? { assignees: pr.assignees } : {}),
     })),
   ));
 

@@ -7,7 +7,7 @@ import type {
   GraphStoreWrite,
   KBConfig,
   KBNode,
-} from '../../../types';
+} from '@anokye-labs/kbexplorer-core';
 import { ProviderRegistry, type GraphProvider, type ProviderResult } from '../../providers';
 import { orchestrateWithProviderResultStore } from '../store-orchestrator';
 
