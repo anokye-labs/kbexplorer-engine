@@ -9,7 +9,7 @@
  * bundle actually carries, so each source produces byte-identical output to its
  * former dedicated loader.
  */
-import type { KBGraph, KBConfig } from '../types';
+import type { KBGraph, KBConfig } from '@anokye-labs/kbexplorer-core';
 import { ProviderRegistry } from './providers';
 import { FilesProvider } from './providers/files-provider';
 import { AuthoredProvider } from './providers/authored-provider';
@@ -52,17 +52,28 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
     title: pr.title,
     body: pr.body,
     state: pr.state,
-    labels: pr.labels,
+    labels: pr.labels ?? [],
     html_url: pr.html_url,
     created_at: pr.created_at,
     updated_at: pr.updated_at,
-    head_branch: pr.head_branch,
-    user: pr.user,
+    head_branch: pr.head_branch ?? '',
+    user: pr.user ?? { login: '' },
+  }));
+  const workCommits = data.commits.map(commit => ({
+    sha: commit.sha,
+    commit: {
+      message: commit.commit.message,
+      author: {
+        name: commit.commit.author?.name ?? commit.author?.login ?? 'Unknown',
+        date: commit.commit.author?.date ?? '',
+      },
+    },
+    html_url: commit.html_url ?? '',
   }));
   registry.register(new WorkProvider(
     data.issues,
     workPRs,
-    data.commits,
+    workCommits,
     data.branches,
     data.repoMetadata,
     data.releases,
@@ -75,8 +86,8 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
       title: pr.title,
       state: pr.state,
       html_url: pr.html_url,
-      user: pr.user,
-      assignees: pr.assignees,
+      user: pr.user ?? { login: '' },
+      assignees: pr.assignees ?? [],
     })),
   ));
 

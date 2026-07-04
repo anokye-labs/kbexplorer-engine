@@ -48,3 +48,17 @@ export interface GHRelease {
   published_at: string;
   prerelease: boolean;
 }
+
+export interface GHCommit {
+  sha: string;
+  commit: {
+    message: string;
+    author?: {
+      name?: string;
+      email?: string;
+      date?: string;
+    } | null;
+  };
+  html_url?: string;
+  author?: { login?: string } | null;
+}

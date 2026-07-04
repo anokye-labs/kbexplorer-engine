@@ -1,4 +1,4 @@
-import type { KBConfig, KBGraph, KBNode, GraphStore, GraphStoreEntry } from '../../types';
+import type { KBConfig, KBGraph, KBNode, GraphStore, GraphStoreEntry, GraphStoreCacheKey } from '@anokye-labs/kbexplorer-core';
 import { extractClusters } from '../parser';
 import { buildGraph } from '../graph';
 import type { ProviderRegistry, ProviderResult } from '../providers';
@@ -8,11 +8,10 @@ import {
   type GraphTransform,
   type TransformContext,
 } from '../transforms';
-import type { GraphStoreCacheKey } from '../../types';
 import {
   GRAPH_STORE_API_VERSION,
   GRAPH_STORE_CACHE_KEY_VERSION,
-} from '../../types';
+} from '@anokye-labs/kbexplorer-core';
 import {
   GRAPH_STORE_DERIVATION_VERSION,
   hashProviderResultPrefix,
@@ -74,7 +73,7 @@ function dependencyFor(
   return {
     href: previousContentHash ? `${key.sourceId ?? key.providerId}#previous` : key.sourceId ?? key.providerId,
     contentHash: previousContentHash ?? key.contentHash,
-    sourceId: key.sourceId,
+    sourceId: key.sourceId ?? key.providerId,
   };
 }
 

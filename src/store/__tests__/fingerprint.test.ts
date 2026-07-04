@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CONFIG, type KBConfig } from '../../../types';
+import type { KBConfig } from '@anokye-labs/kbexplorer-core';
+import { DEFAULT_CONFIG } from '../../default-config';
 import type { RepoData, RepoSource } from '../../sources/repo-data';
 import { buildProviderResultCacheKey } from '../fingerprint';
 
@@ -74,7 +75,7 @@ describe('graph store fingerprints', () => {
     const changedIssue = {
       ...data,
       issues: [{ ...data.issues[0], title: 'Changed issue' }],
-    };
+    } as RepoData;
     const changedConfig = {
       ...config,
       people: { minActiveItems: 2 },

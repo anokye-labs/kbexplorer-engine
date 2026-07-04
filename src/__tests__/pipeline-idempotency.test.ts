@@ -11,7 +11,7 @@
  * (byte-identical), so the new node-type system is strictly additive.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import type { KBConfig, KBNode } from '../../types';
+import type { KBConfig, KBNode } from '@anokye-labs/kbexplorer-core';
 import type { GraphProvider, ProviderResult } from '../providers';
 import { ProviderRegistry } from '../providers';
 import { orchestrate } from '../orchestrator';
@@ -19,10 +19,10 @@ import { buildContentModel } from '../content-model';
 import { ContentModelProvider } from '../providers/content-model-provider';
 import { StructuralProvider } from '../providers/structural-provider';
 import { resetNodeTypeRegistry } from '../node-types';
-import { resetViewerRegistry } from '../../views/viewers';
+import { DEFAULT_CONFIG } from '../default-config';
 import { loadFixtureSource } from '../content-model/__tests__/fixtures';
 
-const config = { clusters: {} } as unknown as KBConfig;
+const config: KBConfig = DEFAULT_CONFIG;
 
 /** A minimal `.github` source: one workflow + CODEOWNERS, enough to exercise
  *  the structural provider and the workflow → repo-meta `structural` edge. */
@@ -54,11 +54,7 @@ class BaselineProvider implements GraphProvider {
 }
 
 afterEach(() => {
-  // StructuralProvider / content-model registration also register bespoke viewers
-  // (WorkflowView/ActionView/…); reset both registries so nothing leaks across tests
-  // and the overall vitest run stays order-independent.
   resetNodeTypeRegistry();
-  resetViewerRegistry();
 });
 
 describe('content-model builder idempotency (#170)', () => {

@@ -2,7 +2,7 @@
  * Provider orchestrator — runs registered providers in dependency order
  * and merges their results into a unified KBGraph.
  */
-import type { KBNode, KBGraph, KBConfig } from '../types';
+import type { KBNode, KBGraph, KBConfig } from '@anokye-labs/kbexplorer-core';
 import type { ProviderRegistry } from './providers';
 import { extractClusters } from './parser';
 import { buildGraph } from './graph';
