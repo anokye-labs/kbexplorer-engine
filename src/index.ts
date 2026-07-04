@@ -168,3 +168,8 @@ export { loadExternalProviders } from './plugin-loader';
 
 // -- content-model/ ---------------------------------------------------------------------
 export * from './content-model';
+
+// -- rich-markdown/ (slice 2/5 addition — pure-logic subset of template's views/rich-markdown
+// + views/diagram; the two React components stay behind in template) ------------------
+export * from './rich-markdown';
+

@@ -3,12 +3,11 @@ import { AuthoredRichMarkdownProvider } from '../../providers/authored-rich-mark
 import { AuthoredProvider } from '../../providers/authored-provider';
 import type { KBConfig } from '@anokye-labs/kbexplorer-core';
 import { DEFAULT_CONFIG } from '../../default-config';
-
-// NOTE (slice 2/5 judgment call): template's `views/rich-markdown` + `views/diagram`
-// pure-logic modules (isRichMarkdownNode/getRichMarkdownDocument/planProseFence) are
-// NOT part of this slice's file list. Assertions/tests that depended on them have
-// been trimmed below rather than pulling those view modules in out-of-scope; see the
-// PR description for the full rationale and the 5 affected cases.
+import {
+  isRichMarkdownNode,
+  getRichMarkdownDocument,
+  planProseFence,
+} from '../../rich-markdown';
 
 const config: KBConfig = DEFAULT_CONFIG;
 
@@ -62,7 +61,7 @@ describe('AuthoredRichMarkdownProvider', () => {
     const node = nodes[0]!;
     expect(node.provider).toBe('authored-rich-markdown');
     expect(node.display).toBe('rich-markdown');
-    // (trimmed: isRichMarkdownNode(node) — see slice-2 rich-markdown view-module note above)
+    expect(isRichMarkdownNode(node)).toBe(true);
   });
 
   it('emits a distinct local id + canonical content identity (#445 / AF-003)', async () => {
@@ -85,16 +84,51 @@ describe('AuthoredRichMarkdownProvider', () => {
     expect(nodes[0]!.cluster).toBe('docs');
   });
 
-  // (trimmed: 'surfaces frontmatter facts in the structured view payload' — entirely
-  // dependent on getRichMarkdownDocument; see slice-2 rich-markdown view-module note above)
+  it('surfaces frontmatter facts in the structured view payload', async () => {
+    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
+    const { nodes } = await provider.resolve(config, []);
 
-  // (trimmed: 'maps embedded blocks to the template contract (kind/source/hash)' —
-  // entirely dependent on getRichMarkdownDocument; see slice-2 rich-markdown view-module
-  // note above)
+    const doc = getRichMarkdownDocument(nodes[0]!);
+    expect(doc).not.toBeNull();
+    expect(doc!.frontmatter).toMatchObject({
+      title: 'Platform Overview',
+      owner: 'Team Atlas',
+    });
+    expect(doc!.frontmatter!.tags).toEqual(['release', 'ci']);
+  });
 
-  // (trimmed: 'renders the mermaid block live and the dot block via the fallback seam' —
-  // entirely dependent on planProseFence/getRichMarkdownDocument; see slice-2
-  // rich-markdown view-module note above)
+  it('maps embedded blocks to the template contract (kind/source/hash)', async () => {
+    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
+    const { nodes } = await provider.resolve(config, []);
+
+    const doc = getRichMarkdownDocument(nodes[0]!)!;
+    const kinds = doc.blocks.map((b) => b.kind);
+    expect(kinds).toContain('mermaid');
+    expect(kinds).toContain('dot');
+
+    const mermaid = doc.blocks.find((b) => b.kind === 'mermaid')!;
+    expect(mermaid.source.trim()).toBe(MERMAID_SOURCE);
+    expect(mermaid.hash).toMatch(/^sha256:hex:[0-9a-f]{64}$/);
+    expect(mermaid.range).toBeDefined();
+  });
+
+  it('renders the mermaid block live and the dot block via the fallback seam', async () => {
+    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
+    const { nodes } = await provider.resolve(config, []);
+    const doc = getRichMarkdownDocument(nodes[0]!)!;
+
+    // mermaid → live Mermaid path.
+    const mermaidPlan = planProseFence('mermaid', MERMAID_SOURCE, doc.blocks);
+    expect(mermaidPlan.type).toBe('mermaid');
+
+    // dot → resolves through the block registry; with no provider-supplied SVG
+    // it degrades gracefully to the raw-source fallback (never blanks).
+    const dotPlan = planProseFence('dot', DOT_SOURCE, doc.blocks);
+    expect(dotPlan.type).toBe('unsupported');
+    if (dotPlan.type === 'unsupported') {
+      expect(dotPlan.source.trim()).toBe(DOT_SOURCE);
+    }
+  });
 
   it('parses the body into content HTML so prose fences are walkable', async () => {
     const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
@@ -118,8 +152,8 @@ describe('AuthoredRichMarkdownProvider', () => {
     // …and the body it renders from is itself frontmatter-free.
     expect(rawContent).not.toContain('---');
     expect(rawContent).not.toContain('display: rich-markdown');
-    // (trimmed: frontmatter-facts-via-getRichMarkdownDocument assertion — see
-    // slice-2 rich-markdown view-module note above)
+    // The frontmatter facts are still available to the structured view.
+    expect(getRichMarkdownDocument(nodes[0]!)!.frontmatter).toMatchObject({ owner: 'Team Atlas' });
   });
 
   it('ignores plain authored docs (no rich opt-in)', async () => {
