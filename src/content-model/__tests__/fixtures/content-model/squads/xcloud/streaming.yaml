@@ -1,0 +1,10 @@
+"@type": squad
+id: streaming
+name: Streaming
+mission: Low-latency cloud streaming
+dri: bcarter
+members:
+  - ben
+workstream: personalization-discovery
+knowledgeAreas:
+  - networking

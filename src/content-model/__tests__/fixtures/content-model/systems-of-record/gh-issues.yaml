@@ -1,0 +1,5 @@
+"@type": system-of-record
+id: gh-issues
+name: GitHub Issues
+url: "https://github.com/xbox/kbexplorer/issues"
+description: Primary issue-tracking board for the KB Explorer workstream.

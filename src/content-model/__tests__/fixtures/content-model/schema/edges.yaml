@@ -1,0 +1,161 @@
+# edges.yaml — relationships resolved into the six-relation taxonomy.
+edges:
+  # alias FK → Person (squad.dri references a person by their alias handle)
+  - id: squad-dri
+    from: squad
+    field: dri
+    to: person
+    fk: alias
+    relation: leads
+    description: DRI leads the squad
+  # array FK → Person (squad.members is a list of person ids)
+  - id: squad-members
+    from: squad
+    field: members
+    to: person
+    fk: array
+    relation: staffs
+    description: Squad staffs member
+  # scalar FK → Workstream
+  - id: squad-workstream
+    from: squad
+    field: workstream
+    to: workstream
+    fk: scalar
+    relation: structural
+    description: Squad delivers workstream
+  # scalar FK → Priority (has-priority relation — #233)
+  - id: workstream-priority
+    from: workstream
+    field: priority
+    to: priority
+    fk: scalar
+    relation: has-priority
+    description: Workstream serves priority
+  # scalar FK → Person (may be unresolved → stub node)
+  - id: person-manager
+    from: person
+    field: manager
+    to: person
+    fk: scalar
+    relation: reports-to
+    description: Reports to
+  # composite FK "<cycle>:<squad>" → two edges
+  - id: mission-assignment
+    from: mission
+    field: assignment
+    fk: composite
+    relation: structural
+    composite:
+      - to: cycle
+        relation: structural
+      - to: squad
+        relation: structural
+
+  # ── Work-graph descriptor edges (#233) ─────────────────────
+  # team.lead → person (alias FK → leads edge)
+  - id: team-lead
+    from: team
+    field: lead
+    to: person
+    fk: alias
+    relation: leads
+    description: Team is led by
+  # team.members → person[] (array FK → staffs edges)
+  - id: team-members
+    from: team
+    field: members
+    to: person
+    fk: array
+    relation: staffs
+    description: Team staffs member
+  # team.workstreams → workstream[] (array FK → owns edges)
+  - id: team-workstreams
+    from: team
+    field: workstreams
+    to: workstream
+    fk: array
+    relation: owns
+    description: Team owns workstream
+  # workstream.team → team (scalar FK → structural back-edge)
+  - id: workstream-team
+    from: workstream
+    field: team
+    to: team
+    fk: scalar
+    relation: structural
+    description: Workstream belongs to team
+  # workstream.systems-of-record → system-of-record[] (array FK → tracked-in edges)
+  - id: workstream-sor
+    from: workstream
+    field: systems-of-record
+    to: system-of-record
+    fk: array
+    relation: tracked-in
+    description: Workstream tracked in system of record
+  # person.manager → person (already covered by person-manager above; omitted to avoid duplicate)
+
+  # ── Service + Decision edges (Feature H — #275) ────────────
+  # NOTE: service/decision are authority-scoped, so a scalar/array FK to an
+  # org-scoped target (team / workstream / mission) resolves the target in its
+  # default (home) org. Cross-org references would need an explicit org and are
+  # out of scope here — the example entities all point at default-org targets.
+  # service.team → team (scalar FK → owned-by edge)
+  - id: service-owner
+    from: service
+    field: team
+    to: team
+    fk: scalar
+    relation: owned-by
+    description: Service owned by team
+  # service.systems-of-record → system-of-record[] (array FK → tracked-in edges)
+  - id: service-sor
+    from: service
+    field: systems-of-record
+    to: system-of-record
+    fk: array
+    relation: tracked-in
+    description: Service tracked in system of record
+  # decision.deciders → person[] (array FK → decided-by edges)
+  - id: decision-deciders
+    from: decision
+    field: deciders
+    to: person
+    fk: array
+    relation: decided-by
+    description: Decision decided by
+  # decision affects work — split across two fields because an FK rule has a
+  # single target kind; both emit the `affects` relation.
+  # decision.affects-workstreams → workstream[] (array FK → affects edges)
+  - id: decision-affects-workstream
+    from: decision
+    field: affects-workstreams
+    to: workstream
+    fk: array
+    relation: affects
+    description: Decision affects workstream
+  # decision.affects-missions → mission[] (array FK → affects edges)
+  - id: decision-affects-mission
+    from: decision
+    field: affects-missions
+    to: mission
+    fk: array
+    relation: affects
+    description: Decision affects mission
+
+derived:
+  # squads that deliver the same workstream are aligned (computed, not stored)
+  - id: squad-coalignment
+    type: shared-target
+    via: squad-workstream
+    relation: derived
+    description: Aligned via shared workstream
+
+deprecated:
+  # legacy ownership — resolved but tagged `deprecated`
+  - id: squad-legacy-owner
+    from: squad
+    field: legacyOwner
+    to: person
+    fk: alias
+    relation: deprecated

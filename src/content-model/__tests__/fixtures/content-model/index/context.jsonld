@@ -1,0 +1,16 @@
+{
+  "@context": {
+    "@base": "kg://xbox.com/",
+    "org": "kg://xbox.com/orgs/",
+    "person": "kg://xbox.com/people/",
+    "squad": "kg://xbox.com/squads/",
+    "workstream": "kg://xbox.com/workstreams/",
+    "mission": "kg://xbox.com/missions/",
+    "priority": "kg://xbox.com/priorities/",
+    "cycle": "kg://xbox.com/cycles/",
+    "team": "kg://xbox.com/teams/",
+    "system-of-record": "kg://xbox.com/systems-of-record/",
+    "service": "kg://xbox.com/services/",
+    "decision": "kg://xbox.com/decisions/"
+  }
+}
