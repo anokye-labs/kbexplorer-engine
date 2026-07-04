@@ -86,9 +86,11 @@ describe('AuthoredRichMarkdownProvider', () => {
     const node = nodes[0]!;
     expect(node.provider).toBe('authored-rich-markdown');
     expect(node.display).toBe('rich-markdown');
-    // The provider's own contract, not a views-layer concern (see note above).
-    expect(richMarkdownDataOf(node)).toBeDefined();
-    expect(richMarkdownDataOf(node)!.blocks.length).toBeGreaterThan(0);
+    // The provider's own contract, not a views-layer concern (see note above):
+    // exactly the two fenced blocks the fixture declares, nothing more/less.
+    const doc = richMarkdownDataOf(node);
+    expect(doc).toBeDefined();
+    expect(doc!.blocks.map((b) => b.kind).sort()).toEqual(['dot', 'mermaid']);
   });
 
   it('emits a distinct local id + canonical content identity (#445 / AF-003)', async () => {
@@ -129,32 +131,34 @@ describe('AuthoredRichMarkdownProvider', () => {
     const { nodes } = await provider.resolve(config, []);
 
     const doc = richMarkdownDataOf(nodes[0]!)!;
-    const kinds = doc.blocks.map((b) => b.kind);
-    expect(kinds).toContain('mermaid');
-    expect(kinds).toContain('dot');
+    expect(doc.blocks.map((b) => b.kind).sort()).toEqual(['dot', 'mermaid']);
 
     const mermaid = doc.blocks.find((b) => b.kind === 'mermaid')!;
     expect(mermaid.source.trim()).toBe(MERMAID_SOURCE);
     expect(mermaid.hash).toMatch(/^sha256:hex:[0-9a-f]{64}$/);
     expect(mermaid.range).toBeDefined();
-  });
 
-  it('range-tracks blocks in source order (mermaid fence precedes dot fence)', async () => {
-    const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
-    const { nodes } = await provider.resolve(config, []);
-    const doc = richMarkdownDataOf(nodes[0]!)!;
-
-    // Downstream fence-matching (template's views-layer render-plan resolution,
-    // out of scope here) relies on each block carrying its own source-offset
-    // range. Verify the mermaid fence (declared first in richDoc) has a lower
-    // range than the dot fence (declared second) — the provider's own output,
-    // no views import needed to check it.
-    const mermaid = doc.blocks.find((b) => b.kind === 'mermaid')!;
     const dot = doc.blocks.find((b) => b.kind === 'dot')!;
-    expect(mermaid.range).toBeDefined();
+    expect(dot.source.trim()).toBe(DOT_SOURCE);
+    expect(dot.hash).toMatch(/^sha256:hex:[0-9a-f]{64}$/);
+    expect(dot.hash).not.toBe(mermaid.hash);
     expect(dot.range).toBeDefined();
-    expect(mermaid.range!.start).toBeLessThan(dot.range!.start);
+    // The dot fence is declared after the mermaid fence in richDoc, so its
+    // source range must start later.
+    expect(dot.range!.start).toBeGreaterThan(mermaid.range!.start);
   });
+
+  // DROPPED (not re-expressible against provider output alone): the original
+  // 'renders the mermaid block live and the dot block via the fallback seam'
+  // case asserted on `planProseFence`'s live-vs-fallback render DECISION —
+  // that decision is made entirely by template's views-layer block-renderer
+  // registry (`views/rich-markdown/plan.ts` + `registry.ts`), which this
+  // provider never calls and whose output this provider never produces. There
+  // is no equivalent provider-owned value to assert on in its place, so rather
+  // than pad this file with a hollow stand-in, this case is dropped from
+  // engine's copy entirely. Flagged for template to re-home as an integration
+  // test alongside its shim-swap PR (verifying planProseFence against this
+  // provider's real output), so the coverage isn't silently lost.
 
   it('parses the body into content HTML so prose fences are walkable', async () => {
     const provider = new AuthoredRichMarkdownProvider({ 'content/org/platform.md': richDoc });
