@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { WikipediaProvider } from '../../providers/wikipedia-provider'
 import { OrgChartProvider } from '../../providers/orgchart-provider'
 import { loadExternalProviders } from '../../plugin-loader'
@@ -171,7 +175,67 @@ describe('loadExternalProviders', () => {
   })
 
   // ── Local ES-module loading (F5a) ──────────────────────────
-  it('loads a local ES-module provider by specifier and contributes nodes', async () => {
+  it('loads a local ES-module provider when an import base URL is injected', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'kbexplorer-provider-'))
+
+    try {
+      const providerPath = join(tempDir, 'that-provider.js')
+      await writeFile(
+        providerPath,
+        [
+          "import { defineProvider } from '@anokye-labs/kbexplorer-core'",
+          '',
+          'export default defineProvider((config) => {',
+          '  const id = `temp-${config.name ?? "default"}`',
+          '  return {',
+          '    id,',
+          '    name: config.name ?? "Temp",',
+          '    async resolve() {',
+          '      const nodes = [{',
+          '        id: "temp-node",',
+          '        title: "Temp Provider",',
+          '        cluster: config.cluster ?? "reference",',
+          '        source: { type: "external", provider: id },',
+          '        provider: id,',
+          '        connections: [{ to: "graph-engine", description: "Defines" }],',
+          '      }]',
+          '      return { nodes, edges: [] }',
+          '    },',
+          '  }',
+          '})',
+          '',
+        ].join('\n'),
+      )
+
+      const providers = await loadExternalProviders(
+        [
+          {
+            type: 'custom',
+            name: 'Temp',
+            cluster: 'reference',
+            module: './that-provider.js',
+            options: {},
+          },
+        ],
+        { importBaseUrl: pathToFileURL(tempDir).href },
+      )
+
+      expect(providers).toHaveLength(1)
+      expect(providers[0]!.id).toBe('temp-Temp')
+
+      const result = await providers[0]!.resolve(DEFAULT_CONFIG, [])
+      expect(result.nodes).toHaveLength(1)
+      expect(result.nodes[0]!.id).toBe('temp-node')
+      expect(result.nodes[0]!.title).toBe('Temp Provider')
+      expect(result.nodes[0]!.connections).toEqual([
+        { to: 'graph-engine', description: 'Defines' },
+      ])
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('loads a local ES-module provider from the current module path when no import base is provided', async () => {
     const providers = await loadExternalProviders([
       {
         type: 'glossary',
