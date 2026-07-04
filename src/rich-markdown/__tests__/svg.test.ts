@@ -5,7 +5,7 @@ import { SAMPLE_DOT_SVG } from '../sample-document';
 function decode(dataUri: string): string {
   const match = dataUri.match(/^data:image\/svg\+xml;base64,(.*)$/);
   if (!match) throw new Error(`not an svg data URI: ${dataUri.slice(0, 40)}…`);
-  return Buffer.from(match[1], 'base64').toString('utf8');
+  return Buffer.from(match[1]!, 'base64').toString('utf8');
 }
 
 describe('svgToImageDataUri — untrusted SVG is rendered inert (#427 security)', () => {

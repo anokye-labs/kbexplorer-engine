@@ -24,7 +24,7 @@ import {
 export const mermaidBlockRenderer: BlockRenderer = (block) => ({
   type: 'mermaid',
   source: block.source,
-  title: block.title,
+  ...(block.title !== undefined ? { title: block.title } : {}),
 });
 
 /**
@@ -35,7 +35,7 @@ export const mermaidBlockRenderer: BlockRenderer = (block) => ({
 function svgPreferringRenderer(label: string): BlockRenderer {
   return (block: RichMarkdownBlock): BlockOutput => {
     if (typeof block.svg === 'string' && block.svg.trim()) {
-      return { type: 'svg', svg: block.svg, title: block.title };
+      return { type: 'svg', svg: block.svg, ...(block.title !== undefined ? { title: block.title } : {}) };
     }
     return {
       type: 'unsupported',

@@ -83,7 +83,7 @@ export function resetBlockRendererRegistry(): void {
  */
 export function svgFallbackOutput(block: RichMarkdownBlock): BlockOutput {
   if (typeof block.svg === 'string' && block.svg.trim()) {
-    return { type: 'svg', svg: block.svg, title: block.title };
+    return { type: 'svg', svg: block.svg, ...(block.title !== undefined ? { title: block.title } : {}) };
   }
   return {
     type: 'unsupported',

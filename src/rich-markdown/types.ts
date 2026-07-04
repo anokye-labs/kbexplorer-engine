@@ -1,8 +1,8 @@
 /**
- * Rich-Markdown document contract (Wave 0b — #427).
+ * Rich-Markdown node contract (Wave 0b — #427).
  *
  * A rich-Markdown node carries an open `data.richMarkdown` bag emitted by the
- * provider (anokye-labs/kbexplorer-cli#133). It pairs the document's prose
+ * provider (anokye-labs/kbexplorer-cli#133). It pairs the node's prose
  * (`node.content` / `node.rawContent`) with a list of **embedded blocks** — each
  * a fenced region (`mermaid` / `dot` / `ics` / `canvas` / …) the provider lifts
  * out, hashes, and (for kinds with no live renderer) pre-renders to SVG.
@@ -11,7 +11,7 @@
  * block-renderer registry ({@link ./registry}) turns a block into a render
  * decision; the React/DOM layer turns that decision into pixels.
  */
-import type { KBNode } from '../../types';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 
 /** Character offsets of a block within the original markdown source. */
 export interface BlockRange {
@@ -22,7 +22,7 @@ export interface BlockRange {
 }
 
 /**
- * One embedded block inside a rich-Markdown document.
+ * One embedded block inside a rich-Markdown node.
  *
  * `kind` is an **open** discriminator (`'mermaid' | 'dot' | 'ics' | 'canvas' | …`)
  * so new block kinds need no core change. `svg` is the pre-built-SVG fallback
@@ -55,7 +55,7 @@ export interface RichMarkdownBlock {
 export interface RichMarkdownDocument {
   /** Frontmatter facts surfaced in the structured view. */
   frontmatter?: Record<string, unknown>;
-  /** Embedded blocks, in document order. */
+  /** Embedded blocks, in source order. */
   blocks: RichMarkdownBlock[];
 }
 

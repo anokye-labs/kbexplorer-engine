@@ -10,7 +10,7 @@
  * Pure (no DOM/React) so it stays node-testable; `ReadingView` applies the
  * decision imperatively to the live prose DOM.
  */
-import { getDiagramRenderPlan } from '../diagram';
+import { getDiagramRenderPlan } from './diagram';
 import type { RichMarkdownBlock } from './types';
 import { normalizeBlockSource } from './types';
 import { ensureBuiltinBlockRenderers } from './renderers';
@@ -73,9 +73,14 @@ export function planProseFence(
     return { type: 'mermaid', source: diagram.source };
   }
 
-  const block = findBlockForFence(source, blocks, { language, hash: options.hash });
+  const block = findBlockForFence(source, blocks, {
+    ...(language !== undefined ? { language } : {}),
+    ...(options.hash !== undefined ? { hash: options.hash } : {}),
+  });
   if (block) {
-    return resolveBlockOutput(block, { isDark: options.isDark });
+    return resolveBlockOutput(block, {
+      ...(options.isDark !== undefined ? { isDark: options.isDark } : {}),
+    });
   }
 
   return {

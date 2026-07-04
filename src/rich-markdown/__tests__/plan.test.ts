@@ -18,7 +18,7 @@ describe('findBlockForFence (#427)', () => {
   });
 
   it('matches by hash when provided', () => {
-    const found = findBlockForFence('totally different text', [dotBlock], { hash: dotBlock.hash });
+    const found = findBlockForFence('totally different text', [dotBlock], { hash: dotBlock.hash! });
     expect(found).toBe(dotBlock);
   });
 
@@ -54,10 +54,10 @@ describe('acceptance — sample document blocks (#427)', () => {
     const byKind = Object.fromEntries(
       blocks.map((b) => [b.kind, planProseFence(b.kind, b.source, blocks)]),
     );
-    expect(byKind.mermaid.type).toBe('mermaid');
-    expect(byKind.dot.type).toBe('svg');
-    expect(byKind.ics.type).toBe('svg');
-    expect(byKind.canvas.type).toBe('svg');
+    expect(byKind.mermaid!.type).toBe('mermaid');
+    expect(byKind.dot!.type).toBe('svg');
+    expect(byKind.ics!.type).toBe('svg');
+    expect(byKind.canvas!.type).toBe('svg');
   });
 
   it('NO block falls back to raw code when an SVG exists', () => {

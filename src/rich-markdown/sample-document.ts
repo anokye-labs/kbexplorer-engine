@@ -1,7 +1,7 @@
 /**
- * A sample rich-Markdown document + node (Wave 0b — #427).
+ * A sample rich-Markdown source + node (Wave 0b — #427).
  *
- * This is the fixture the acceptance criteria describe: a document whose prose
+ * This is the fixture the acceptance criteria describe: a source whose prose
  * embeds a **live Mermaid** block plus `dot` / `ics` / `canvas` blocks that have
  * no live renderer and therefore ship a **pre-built SVG**. It matches the
  * provider shape (`node.data.richMarkdown.blocks`) so this template and the
@@ -10,10 +10,10 @@
  * Used by:
  *  - the unit tests (asserting no block falls back to raw code when an SVG exists);
  *  - the `?demo=richmd` seam, which injects {@link buildSampleRichMarkdownNode}
- *    into the graph so the document is viewable (and Playwright-verifiable).
+ *    into the graph so the payload is viewable (and Playwright-verifiable).
  */
-import { renderSafeMarkdown } from '../../engine/safe-markdown';
-import type { KBNode } from '../../types';
+import { renderSafeMarkdown } from '../safe-markdown';
+import type { KBNode } from '@anokye-labs/kbexplorer-core';
 import type { RichMarkdownBlock, RichMarkdownDocument } from './types';
 import { hashBlockSource } from './types';
 
@@ -62,7 +62,7 @@ END:VEVENT`;
 
 const CANVAS_SOURCE = `{ "shapes": [ { "rect": [0, 0, 128, 80] }, { "circle": [80, 48, 26] } ] }`;
 
-/** The document's frontmatter facts (rendered in the structured view). */
+/** The frontmatter facts for the sample source (rendered in the structured view). */
 export const SAMPLE_FRONTMATTER: Record<string, unknown> = {
   title: 'Release Pipeline',
   status: 'active',
@@ -71,10 +71,10 @@ export const SAMPLE_FRONTMATTER: Record<string, unknown> = {
   tags: ['release', 'ci', 'pipeline'],
 };
 
-/** The document's prose, in Markdown, with one fenced block per kind. */
+/** The sample prose, in Markdown, with one fenced block per kind. */
 export const SAMPLE_RICH_MARKDOWN_RAW = `# Release Pipeline
 
-This document describes the **release pipeline** and embeds several block kinds —
+This page describes the **release pipeline** and embeds several block kinds —
 a live diagram plus three blocks that render from a pre-built SVG.
 
 ## Flow (live Mermaid)
@@ -116,7 +116,7 @@ function makeBlock(
   return block;
 }
 
-/** The sample document's embedded blocks, in document order. */
+/** The sample's embedded blocks, in source order. */
 export function buildSampleBlocks(): RichMarkdownBlock[] {
   return [
     makeBlock('mermaid', MERMAID_SOURCE, { title: 'Release flow' }),

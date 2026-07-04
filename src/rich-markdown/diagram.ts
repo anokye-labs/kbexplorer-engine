@@ -69,10 +69,10 @@ export function extractDiagramFence(content: string): { language?: string; sourc
   const match = trimmed.match(/^```([^\r\n`]*)\r?\n([\s\S]*?)\r?\n```$/);
   if (!match) return { source: trimmed };
 
-  const language = normalizeLanguage(match[1].split(/\s+/)[0]);
+  const language = normalizeLanguage(match[1]!.split(/\s+/)[0]);
   return {
-    language,
-    source: match[2].replace(/\s+$/, ''),
+    ...(language !== undefined ? { language } : {}),
+    source: match[2]!.replace(/\s+$/, ''),
   };
 }
 
@@ -118,7 +118,7 @@ export function getDiagramRenderPlan(
   return {
     kind: 'unsupported',
     source,
-    language: fallbackLanguage,
+    ...(fallbackLanguage !== undefined ? { language: fallbackLanguage } : {}),
     reason,
   };
 }
