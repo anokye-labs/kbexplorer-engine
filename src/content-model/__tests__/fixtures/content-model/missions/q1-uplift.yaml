@@ -1,0 +1,19 @@
+"@type": mission
+id: q1-uplift
+name: Q1 Latency Uplift
+status: on-track
+rag: green
+dri: aokonkwo
+assignment: cycle-2:game-assist
+metrics:
+  - name: p99 latency
+    target: 200ms
+    current: 240ms
+milestones:
+  - name: Instrumentation
+    done: true
+  - name: Cache warming
+    done: false
+tasks:
+  - Add p99 dashboards
+  - Ship cache warmer

@@ -1,0 +1,5 @@
+"@type": priority
+id: p0-latency
+name: P0 — Latency
+rank: 0
+description: Sub-250ms p99 across core surfaces.

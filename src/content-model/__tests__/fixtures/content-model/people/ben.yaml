@@ -1,0 +1,9 @@
+"@type": person
+id: ben
+alias: bcarter
+name: Ben Carter
+role: Software Engineer
+email: ben@example.com
+manager: ada
+knowledgeAreas:
+  - accessibility

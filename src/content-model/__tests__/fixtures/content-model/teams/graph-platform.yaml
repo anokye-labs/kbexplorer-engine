@@ -1,0 +1,10 @@
+"@type": team
+id: graph-platform
+name: Graph Platform
+description: Owns the KB Explorer content-model pipeline and graph rendering.
+members:
+  - ada
+  - ben
+workstreams:
+  - personalization-discovery
+lead: aokonkwo

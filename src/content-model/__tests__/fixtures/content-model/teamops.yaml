@@ -1,0 +1,11 @@
+# teamops.yaml — identity → authority + default (home) org.
+# Fixture mirrors the shape the real (sunset) content-model repo will land.
+identity:
+  authority: xbox.com
+  defaultOrg: personalization
+orgs:
+  - id: personalization
+    name: Personalization
+    default: true
+  - id: xcloud
+    name: xCloud

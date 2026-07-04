@@ -1,0 +1,10 @@
+"@type": person
+id: ada
+alias: aokonkwo
+name: Ada Okonkwo
+role: Engineering Lead
+email: ada@example.com
+manager: cto
+knowledgeAreas:
+  - graph engines
+  - TypeScript
