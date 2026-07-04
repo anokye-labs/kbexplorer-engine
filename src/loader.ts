@@ -95,6 +95,7 @@ export async function loadKnowledgeBase(
   source: RepoSource,
   config: KBConfig,
   env?: EngineEnv,
+  options?: { importBaseUrl?: string | URL },
 ): Promise<{ graph: KBGraph; config: KBConfig }> {
   const data = await source.getRepoData();
 
@@ -104,7 +105,10 @@ export async function loadKnowledgeBase(
   // External providers declared in config (local-ES-module first; F5).
   if (config.providers && config.providers.length > 0) {
     const { loadExternalProviders } = await import('./plugin-loader');
-    const externals = await loadExternalProviders(config.providers);
+    const externals = await loadExternalProviders(
+      config.providers,
+      options?.importBaseUrl !== undefined ? { importBaseUrl: options.importBaseUrl } : undefined,
+    );
     for (const p of externals) registry.register(p);
   }
 
