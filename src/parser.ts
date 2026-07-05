@@ -18,7 +18,7 @@ import type {
   SourceConfig,
 } from '@anokye-labs/kbexplorer-core';
 import { assignIdentity } from './identity';
-import { parseAccessLabel } from './access';
+import { parseAccessLabel, coerceAccessLabel } from './access';
 import type { GHIssue, GHTreeItem } from './github-types';
 import type { EngineEnv } from './env';
 import { DEFAULT_CONFIG } from './default-config';
@@ -42,6 +42,13 @@ interface AuthoredFrontmatter {
   accent?: string;
   tokens?: Partial<Record<string, string>>;
   theme?: string;
+  /**
+   * Optional explicit node identity. When present it wins over the synthesized
+   * `urn:content:<id>` scheme (see {@link assignIdentity}); this lets an author
+   * pin a stable cross-source identity such as `kg://person/jane-doe`. Absent →
+   * the synthesized identity is used, unchanged.
+   */
+  identity?: string;
   /** Optional label-only access descriptor (#445) — see parseAccessLabel. */
   access?: unknown;
 }
@@ -178,10 +185,21 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   // Label-only access descriptor (#445): carried on the node so the assembly
   // gate (buildGraph → filterAccessWithheld) can withhold labeled-sensitive
   // docs from render + search. Absent/unusable frontmatter → unlabeled.
-  const access = parseAccessLabel(fm.access);
+  // Objects are sanitized by parseAccessLabel; a bare-string shorthand such as
+  // `access: internal-only` is coerced to `{ classification: 'internal-only' }`
+  // (matching core's coerceAccessLabel) so consumers that read
+  // `label.classification` — search's default-safe exclusion predicate — act on
+  // it instead of silently dropping a bare scalar as "unlabeled = public".
+  const access = parseAccessLabel(fm.access) ?? coerceAccessLabel(fm.access);
   if (access) node.access = access;
-  const identity = assignIdentity(node);
-  if (identity !== undefined) node.identity = identity;
+  // An explicit frontmatter `identity` wins over the synthesized
+  // `urn:content:<id>` scheme; otherwise fall back to the assigned identity.
+  if (typeof fm.identity === 'string' && fm.identity.trim()) {
+    node.identity = fm.identity.trim();
+  } else {
+    const identity = assignIdentity(node);
+    if (identity !== undefined) node.identity = identity;
+  }
   return node;
 }
 
