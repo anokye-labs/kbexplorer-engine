@@ -45,6 +45,18 @@ const readmeFixture = {
   encoding: 'base64',
 };
 
+class MemoryCacheStore {
+  private readonly store = new Map<string, unknown>();
+
+  get<T>(key: string): T | undefined {
+    return this.store.get(key) as T | undefined;
+  }
+
+  set<T>(key: string, value: T): void {
+    this.store.set(key, value);
+  }
+}
+
 // ── Mock fetch ────────────────────────────────────────────
 function mockFetchSuccess(body: unknown, headers: Record<string, string> = {}) {
   return Promise.resolve({
@@ -156,6 +168,37 @@ describe('fetchFile', () => {
     const content = await github.fetchFile(source, 'README.md');
     expect(content).toContain('# kbexplorer');
     expect(content).toContain('Interactive Knowledge Base Explorer');
+  });
+});
+
+describe('cache seam', () => {
+  it('uses cache for repeated file fetches when a cache is provided', async () => {
+    const cache = new MemoryCacheStore();
+
+    const first = await github.fetchFile(source, 'README.md', undefined, cache);
+    const second = await github.fetchFile(source, 'README.md', undefined, cache);
+
+    expect(first).toContain('# kbexplorer');
+    expect(second).toBe(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses cache for repeated issue fetches when a cache is provided', async () => {
+    const cache = new MemoryCacheStore();
+
+    const first = await github.fetchIssues(source, undefined, cache);
+    const second = await github.fetchIssues(source, undefined, cache);
+
+    expect(first).toHaveLength(2);
+    expect(second).toEqual(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cache by default when no cache is passed', async () => {
+    await github.fetchFile(source, 'README.md');
+    await github.fetchFile(source, 'README.md');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

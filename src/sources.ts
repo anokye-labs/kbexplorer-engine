@@ -22,6 +22,20 @@ export {
   GitHubApiError,
 } from './github-client';
 
+export type { CacheStore, GHFileContent } from './github-client';
+
+export {
+  fetchFile,
+  fetchTree,
+  fetchIssues,
+  fetchPullRequests,
+  fetchCommits,
+  fetchReleases,
+  fetchFiles,
+} from './github-client';
+
+export type { GHIssue, GHTreeItem, GHCommit, GHRelease } from './github-types';
+
 export type {
   RepoSource,
   RepoData,
