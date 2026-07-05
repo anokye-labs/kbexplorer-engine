@@ -23,6 +23,7 @@ import type { RepoSource, RepoData } from './sources/repo-data';
 import { resolveGraphStoreOptions } from './store/config';
 import type { EngineEnv } from './env';
 import { buildProviderResultCacheKey } from './store/fingerprint';
+import type { SqliteByteStore } from './store/sqlite-runtime';
 
 /** Build + register the provider pipeline from a normalized {@link RepoData} bundle. */
 export function registerProviders(registry: ProviderRegistry, data: RepoData): void {
@@ -95,7 +96,13 @@ export async function loadKnowledgeBase(
   source: RepoSource,
   config: KBConfig,
   env?: EngineEnv,
-  options?: { importBaseUrl?: string | URL },
+  options?: {
+    importBaseUrl?: string | URL;
+    graphStore?: {
+      byteStore?: SqliteByteStore;
+      locateFile?: (file: string) => string;
+    };
+  },
 ): Promise<{ graph: KBGraph; config: KBConfig }> {
   const data = await source.getRepoData();
 
@@ -121,7 +128,7 @@ export async function loadKnowledgeBase(
       import('./store/sqlite-graph-store'),
       import('./store/store-orchestrator'),
     ]);
-    const store = await SQLiteGraphStore.create();
+    const store = await SQLiteGraphStore.create(options?.graphStore?.byteStore, options?.graphStore?.locateFile);
     const graph = await orchestrateWithProviderResultStore(
       registry,
       config,

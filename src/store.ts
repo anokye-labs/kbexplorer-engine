@@ -2,23 +2,27 @@
  * Public `./store` subpath — slice 3/5 of the kbexplorer-template ->
  * kbexplorer-engine migration (anokye-labs/kbexplorer-template#472, epic #463).
  *
- * Replaces the scaffold's `StorePlaceholder`/`sqliteProviderResultStore`
- * placeholders with the real graph-store config + content-fingerprinting +
- * provider-result-store orchestration modules (forward-moved from nominal
- * slice 4/5 scope; see PR body for the judgment call). The sqlite-backed
- * `GraphStore` implementation itself (`store/sqlite-graph-store.ts`) is
- * intentionally NOT exported here yet — it's a throw-stub until slice 5.
- */
+* Replaces the scaffold's placeholder store surface with the real graph-store
+* config, content-fingerprinting, orchestration, and sqlite-backed runtime
+* modules that are used by the engine loader.
+*/
 
 // -- store/config.ts ----------------------------------------------------------
 export { resolveGraphStoreOptions, isGraphStoreEnabled } from './store/config';
 export type { GraphStoreMode, GraphStoreOptions } from './store/config';
 
+// -- store/sqlite-graph-store.ts ----------------------------------------------
+export { SQLiteGraphStore } from './store/sqlite-graph-store';
+
+// -- store/sqlite-runtime.ts --------------------------------------------------
+export { IndexedDbSqliteByteStore, MemorySqliteByteStore, loadSqlJs, openPersistedDatabase } from './store/sqlite-runtime';
+export type { SqliteByteStore } from './store/sqlite-runtime';
+
 // -- store/fingerprint.ts -------------------------------------------------------
 export {
-  buildProviderResultCacheKey,
-  GRAPH_STORE_DERIVATION_VERSION,
-  GRAPH_STORE_PROVIDER_ID,
+ buildProviderResultCacheKey,
+ GRAPH_STORE_DERIVATION_VERSION,
+ GRAPH_STORE_PROVIDER_ID,
 } from './store/fingerprint';
 
 // -- store/store-orchestrator.ts ------------------------------------------------

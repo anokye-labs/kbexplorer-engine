@@ -58,6 +58,7 @@
     "@anokye-labs/kbexplorer-example-quotes": "file:examples/quotes-provider",
     "@types/node": "^24.0.0",
     "@types/sanitize-html": "^2.16.1",
+    "@types/sql.js": "^1.4.11",
     "jsdom": "^26.0.0",
     "tsup": "^8.5.0",
     "typescript": "^5.7.2",
