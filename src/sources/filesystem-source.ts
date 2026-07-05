@@ -31,7 +31,9 @@ export interface FileSystemSourceOptions {
   repo?: string;
   /**
    * Sub-directory (relative to the root) whose `.md` files become authored
-   * content nodes. Defaults to `'content'`.
+   * content nodes. Defaults to `'content'`. Pass `''` (or `'.'`) to treat
+   * **top-level** `.md` files in the root itself as authored content (the
+   * legacy root-scan convention) — `README.md` still stays the repo readme.
    */
   contentPath?: string;
   /**
@@ -44,6 +46,16 @@ export interface FileSystemSourceOptions {
    * `.git`, `node_modules`, and `dist`).
    */
   ignore?: string[];
+  /**
+   * Whether the walked file tree is exposed as `RepoData.tree` (which the
+   * unified loader turns into structural file/dir/repo-root nodes via
+   * `FilesProvider`). Defaults to `true` (byte-identical to prior behavior).
+   * Set `false` for a **content-only** graph — authored content + provider
+   * entities, with none of the file-tree scaffolding nodes. `listFiles` and
+   * authored-content ingestion are unaffected; only the emitted `tree` (and the
+   * `retrieve`/`get` resource surface derived from it) is suppressed.
+   */
+  includeFileTree?: boolean;
 }
 
 /** Directories never walked, regardless of the `ignore` option. */
@@ -68,6 +80,7 @@ export class FileSystemSource implements RepoSource {
   private readonly contentPath: string;
   private readonly contentModelPath: string;
   private readonly ignore: Set<string>;
+  private readonly includeFileTree: boolean;
 
   private cache: Promise<RepoData> | null = null;
 
@@ -77,6 +90,7 @@ export class FileSystemSource implements RepoSource {
     this.contentPath = options.contentPath ?? 'content';
     this.contentModelPath = options.contentModelPath ?? 'content-model';
     this.ignore = new Set([...ALWAYS_IGNORE, ...(options.ignore ?? [])]);
+    this.includeFileTree = options.includeFileTree ?? true;
   }
 
   async getRepoData(): Promise<RepoData> {
@@ -88,11 +102,17 @@ export class FileSystemSource implements RepoSource {
     const files = await this.walk();
     const paths = files.map(f => f.path);
 
-    const tree: GHTreeItem[] = files.map(f => ({ path: f.path, type: f.type }));
+    const tree: GHTreeItem[] = this.includeFileTree
+      ? files.map(f => ({ path: f.path, type: f.type }))
+      : [];
 
     const authoredContent: Record<string, string> = {};
     const structuralFiles: Record<string, string> = {};
-    const contentPrefix = `${this.contentPath}/`;
+    // Root-scan mode (`contentPath` of '' or '.'): top-level `.md` files in the
+    // root are authored content. Otherwise authored content lives under
+    // `${contentPath}/`.
+    const rootScan = this.contentPath === '' || this.contentPath === '.';
+    const contentPrefix = rootScan ? '' : `${this.contentPath}/`;
     const contentModelPrefix = `${this.contentModelPath}/`;
     const contentModelFiles: Record<string, string> = {};
     let readme: string | null = null;
@@ -101,7 +121,11 @@ export class FileSystemSource implements RepoSource {
     for (const file of files) {
       if (file.type !== 'blob') continue;
 
-      if (file.path.startsWith(contentPrefix) && file.path.endsWith('.md')) {
+      const isAuthoredMd =
+        file.path.endsWith('.md') &&
+        file.path !== 'README.md' &&
+        (rootScan ? !file.path.includes('/') : file.path.startsWith(contentPrefix));
+      if (isAuthoredMd) {
         authoredContent[file.path] = await this.read(file.path);
         continue;
       }

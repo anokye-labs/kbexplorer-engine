@@ -101,4 +101,51 @@ describe('FileSystemSource', () => {
     // the frontmatter connection alpha → beta became an edge
     expect(graph.edges.some(e => e.from === 'alpha' && e.to === 'beta')).toBe(true);
   });
+
+  it('content-only mode (includeFileTree:false) suppresses the file tree and its nodes', async () => {
+    const source = new FileSystemSource(root, { repo: 'acme/demo', includeFileTree: false });
+    const data = await source.getRepoData();
+    // No tree exposed → FilesProvider is not registered by the loader.
+    expect(data.tree).toEqual([]);
+    // authored content is unaffected.
+    expect(Object.keys(data.authoredContent).sort()).toEqual(['content/alpha.md', 'content/beta.md']);
+
+    const config = { ...DEFAULT_CONFIG, source: { owner: 'acme', repo: 'demo', path: 'content', branch: 'main' } };
+    const graph = await loadKnowledgeBase(config, { source });
+    const ids = graph.nodes.map(n => n.id);
+    // Authored content is present …
+    expect(ids).toContain('alpha');
+    expect(ids).toContain('beta');
+    // … but the FilesProvider file-tree scaffolding (repo-root / dir- / file-)
+    // is gone. Other provider entities (structural, readme, content-model) stay.
+    expect(ids).not.toContain('repo-root');
+    expect(ids.some(id => id.startsWith('dir-') || id.startsWith('file-'))).toBe(false);
+  });
+
+  it('root-scan mode (contentPath:"") treats top-level *.md as authored content', async () => {
+    const rootScanDir = await mkdtemp(join(tmpdir(), 'kbe-fs-rootscan-'));
+    try {
+      await writeFile(join(rootScanDir, 'labeled.md'), '---\nid: labeled\ntitle: Labeled\ncluster: core\nidentity: "kg://person/jane-doe"\naccess: "internal-only"\n---\nBody.\n');
+      await writeFile(join(rootScanDir, 'plain.md'), '---\nid: plain\ntitle: Plain\ncluster: core\n---\nBody.\n');
+      await writeFile(join(rootScanDir, 'README.md'), '# Readme\n');
+
+      const source = new FileSystemSource(rootScanDir, { repo: 'acme/demo', contentPath: '', includeFileTree: false });
+      const data = await source.getRepoData();
+      // Top-level *.md become authored content; README.md stays the readme.
+      expect(Object.keys(data.authoredContent).sort()).toEqual(['labeled.md', 'plain.md']);
+      expect(data.readme).toBe('# Readme\n');
+
+      const config = { ...DEFAULT_CONFIG, source: { owner: 'acme', repo: 'demo', path: '', branch: 'main' } };
+      const graph = await loadKnowledgeBase(config, { source });
+      const labeled = graph.nodes.find(n => n.id === 'labeled');
+      const plain = graph.nodes.find(n => n.id === 'plain');
+      expect(labeled?.identity).toBe('kg://person/jane-doe');
+      expect(labeled?.access).toEqual({ classification: 'internal-only' });
+      // plain keeps the synthesized identity (CLI strips it downstream).
+      expect(plain?.identity).toBe('urn:content:plain');
+      expect(plain?.access).toBeUndefined();
+    } finally {
+      await rm(rootScanDir, { recursive: true, force: true });
+    }
+  });
 });

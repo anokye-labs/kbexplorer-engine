@@ -40,6 +40,40 @@ Body text.`;
     expect(node.identity).toBe('urn:content:test-node');
   });
 
+  it('honors an explicit frontmatter `identity` over the synthesized scheme', () => {
+    const raw = `---
+id: jane
+title: Jane
+cluster: people
+identity: "kg://person/jane-doe"
+---
+Body.`;
+    const node = parseMarkdownFile('content/jane.md', raw);
+    // Explicit identity wins over the default urn:content:<id>.
+    expect(node.identity).toBe('kg://person/jane-doe');
+  });
+
+  it('falls back to the synthesized identity when frontmatter `identity` is blank/absent', () => {
+    const blank = parseMarkdownFile('content/a.md', `---\nid: a\ntitle: A\ncluster: c\nidentity: "   "\n---\nBody.`);
+    expect(blank.identity).toBe('urn:content:a');
+    const absent = parseMarkdownFile('content/b.md', `---\nid: b\ntitle: B\ncluster: c\n---\nBody.`);
+    expect(absent.identity).toBe('urn:content:b');
+  });
+
+  it('coerces a bare-string `access` shorthand to a classification object', () => {
+    const node = parseMarkdownFile('content/secret.md', `---\nid: secret\ntitle: Secret\ncluster: c\naccess: "restricted"\n---\nBody.`);
+    // A bare scalar is coerced (core coerceAccessLabel), not dropped as unlabeled,
+    // so search's default-safe classification predicate can act on it.
+    expect(node.access).toEqual({ classification: 'restricted' });
+  });
+
+  it('still sanitizes an object `access` label and leaves absent access undefined', () => {
+    const labeled = parseMarkdownFile('content/l.md', `---\nid: l\ntitle: L\ncluster: c\naccess:\n  classification: restricted\n  labels:\n    - pii\n---\nBody.`);
+    expect(labeled.access).toEqual({ classification: 'restricted', labels: ['pii'] });
+    const plain = parseMarkdownFile('content/p.md', `---\nid: p\ntitle: P\ncluster: c\n---\nBody.`);
+    expect(plain.access).toBeUndefined();
+  });
+
   it('preserves typed relation metadata from authored connections', () => {
     const raw = `---
 id: source
