@@ -14,7 +14,7 @@ import {
   registerBuiltInNodeTypes,
   renderSafeMarkdown,
 } from '../src/index';
-import { GitHubApiSource, ManifestSource, type RepoData, type RepoSource } from '../src/sources';
+import { GitHubApiSource, ManifestSource, type RepoData, type RepoSource, type RepoManifest } from '../src/sources';
 import { resolveGraphStoreOptions } from '../src/store';
 
 describe('package entrypoints', () => {
@@ -54,8 +54,18 @@ describe('package entrypoints', () => {
   });
 
   it('exports the source/store entry points', () => {
-    expect(new ManifestSource()).toBeInstanceOf(ManifestSource);
-    expect(new GitHubApiSource()).toBeInstanceOf(GitHubApiSource);
+    const manifest = {
+      configRaw: null,
+      authoredContent: {},
+      tree: [],
+      readme: null,
+      issues: [],
+      pullRequests: [],
+      commits: [],
+      generatedAt: '',
+    } as unknown as RepoManifest;
+    expect(new ManifestSource(manifest, DEFAULT_CONFIG)).toBeInstanceOf(ManifestSource);
+    expect(new GitHubApiSource(DEFAULT_CONFIG.source)).toBeInstanceOf(GitHubApiSource);
 
     const repoData: RepoData = {
       repo: 'acme/demo-repo',
