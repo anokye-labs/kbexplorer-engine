@@ -91,18 +91,106 @@ export function registerProviders(registry: ProviderRegistry, data: RepoData): v
 /**
  * Load a knowledge base from any {@link RepoSource}. Single replacement for the
  * former `loadLocalKnowledgeBase` / `loadRemoteKnowledgeBase` bodies.
+ *
+ * Two call shapes are supported (distinguished by the first argument):
+ *
+ *  1. **Positional / advanced** — `loadKnowledgeBase(source, config, env?, options?)`
+ *     returns `{ graph, config }`. This is the form the kbexplorer-template
+ *     pins by SHA and MUST remain byte-for-byte compatible.
+ *
+ *  2. **Config-first / scripting** — `loadKnowledgeBase(config, options?)`
+ *     returns the bare {@link KBGraph}. The source is taken from
+ *     `options.source` when provided, otherwise a default
+ *     {@link GitHubApiSource} is constructed from `config.source`. This is the
+ *     ergonomic entry for scripts that "just want the graph".
+ *
+ * The overload is resolved purely by argument shape: a {@link RepoSource} is an
+ * object exposing a `getRepoData()` method, whereas a {@link KBConfig} is not.
  */
-export async function loadKnowledgeBase(
+export interface LoadKnowledgeBaseOptions {
+  /**
+   * The source to load from. When omitted, a {@link GitHubApiSource} is built
+   * from `config.source`. Supply a {@link ManifestSource}, `FileSystemSource`,
+   * or any custom {@link RepoSource} to load from elsewhere.
+   */
+  source?: RepoSource;
+  /** Optional engine environment (e.g. GitHub API base) threaded to sources/store. */
+  env?: EngineEnv;
+  importBaseUrl?: string | URL;
+  graphStore?: {
+    byteStore?: SqliteByteStore;
+    locateFile?: (file: string) => string;
+  };
+}
+
+type PositionalOptions = {
+  importBaseUrl?: string | URL;
+  graphStore?: {
+    byteStore?: SqliteByteStore;
+    locateFile?: (file: string) => string;
+  };
+};
+
+// Advanced/positional form — unchanged public contract.
+export function loadKnowledgeBase(
   source: RepoSource,
   config: KBConfig,
   env?: EngineEnv,
-  options?: {
-    importBaseUrl?: string | URL;
-    graphStore?: {
-      byteStore?: SqliteByteStore;
-      locateFile?: (file: string) => string;
-    };
-  },
+  options?: PositionalOptions,
+): Promise<{ graph: KBGraph; config: KBConfig }>;
+// Config-first scripting form — returns the bare graph.
+export function loadKnowledgeBase(
+  config: KBConfig,
+  options?: LoadKnowledgeBaseOptions,
+): Promise<KBGraph>;
+export async function loadKnowledgeBase(
+  arg1: RepoSource | KBConfig,
+  arg2?: KBConfig | LoadKnowledgeBaseOptions,
+  arg3?: EngineEnv,
+  arg4?: PositionalOptions,
+): Promise<{ graph: KBGraph; config: KBConfig } | KBGraph> {
+  if (isRepoSource(arg1)) {
+    return loadFromSource(arg1, arg2 as KBConfig, arg3, arg4);
+  }
+
+  // Config-first: arg1 is the config, arg2 is the scripting options bag.
+  const config = arg1;
+  const options = (arg2 as LoadKnowledgeBaseOptions | undefined) ?? {};
+  const source = options.source ?? (await defaultSourceFor(config));
+
+  const positionalOptions: PositionalOptions = {};
+  if (options.importBaseUrl !== undefined) positionalOptions.importBaseUrl = options.importBaseUrl;
+  if (options.graphStore !== undefined) positionalOptions.graphStore = options.graphStore;
+
+  const { graph } = await loadFromSource(source, config, options.env, positionalOptions);
+  return graph;
+}
+
+/** Structural test for the positional form: a {@link RepoSource} carries `getRepoData`. */
+function isRepoSource(value: RepoSource | KBConfig): value is RepoSource {
+  return typeof (value as Partial<RepoSource>).getRepoData === 'function';
+}
+
+/**
+ * Build the default {@link RepoSource} for the config-first form: a live
+ * {@link GitHubApiSource} over `config.source`. Imported lazily so scripts that
+ * always pass their own `options.source` never pull the GitHub client path in.
+ */
+async function defaultSourceFor(config: KBConfig): Promise<RepoSource> {
+  const { GitHubApiSource } = await import('./sources/github-api-source');
+  return new GitHubApiSource(config.source);
+}
+
+/**
+ * Core loader body (shared by both call shapes). Wires providers from the
+ * source's {@link RepoData} bundle, runs external providers declared in config,
+ * and executes the shared transform/store stage.
+ */
+async function loadFromSource(
+  source: RepoSource,
+  config: KBConfig,
+  env?: EngineEnv,
+  options?: PositionalOptions,
 ): Promise<{ graph: KBGraph; config: KBConfig }> {
   const data = await source.getRepoData();
 

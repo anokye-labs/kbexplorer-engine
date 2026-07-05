@@ -29,6 +29,22 @@ export type { TrimResult } from './graph';
 // -- edge-weights.ts ----------------------------------------------------------
 export { EDGE_TYPE_WEIGHTS, getEdgeWeight } from './edge-weights';
 
+// -- query.ts (scriptable graph-query helpers; template#475) ------------------
+export {
+  getNode,
+  findNodes,
+  neighbors,
+  related,
+  subgraph,
+  shortestPath,
+} from './query';
+export type {
+  Direction,
+  NeighborOptions,
+  SubgraphOptions,
+  ShortestPathOptions,
+} from './query';
+
 // -- parser.ts ----------------------------------------------------------------
 // Slice 4/5: loadAuthoredContent / loadRepoContent / loadConfig now land here —
 // the GitHub client they depend on migrated to ./github-client this slice.
@@ -182,3 +198,4 @@ export { collectProviderNodes, orchestrate, orchestrateWithTransforms } from './
 
 // -- loader.ts (slice 3) -------------------------------------------------------------------
 export { registerProviders, loadKnowledgeBase } from './loader';
+export type { LoadKnowledgeBaseOptions } from './loader';
