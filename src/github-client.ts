@@ -105,11 +105,20 @@ export interface GHFileContent {
   encoding: string;
 }
 
+export interface CacheStore {
+  get<T>(key: string): T | undefined;
+  set<T>(key: string, value: T): void;
+}
+
 // ── Public API ─────────────────────────────────────────────
 
 /** Fetch and decode a single file from the repo. */
-export async function fetchFile(source: SourceConfig, path: string, env?: EngineEnv): Promise<string> {
+export async function fetchFile(source: SourceConfig, path: string, env?: EngineEnv, cache?: CacheStore): Promise<string> {
   const branch = source.branch ?? 'main';
+  const key = `file:${source.owner}/${source.repo}:${path}`;
+  const hit = cache?.get<string>(key);
+  if (hit !== undefined) return hit;
+
   const { data } = await ghFetch<GHFileContent>(
     `/repos/${source.owner}/${source.repo}/contents/${path}?ref=${branch}`,
     env,
@@ -117,24 +126,36 @@ export async function fetchFile(source: SourceConfig, path: string, env?: Engine
 
   const binary = atob(data.content);
   const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  const decoded = new TextDecoder().decode(bytes);
+  cache?.set(key, decoded);
+  return decoded;
 }
 
 /** List all files in a directory (recursive via Git Trees API). */
-export async function fetchTree(source: SourceConfig, path?: string, env?: EngineEnv): Promise<GHTreeItem[]> {
+export async function fetchTree(source: SourceConfig, path?: string, env?: EngineEnv, cache?: CacheStore): Promise<GHTreeItem[]> {
   const branch = source.branch ?? 'main';
+  const key = `tree:${source.owner}/${source.repo}:${path ?? ''}`;
+  const hit = cache?.get<GHTreeItem[]>(key);
+  if (hit !== undefined) return hit;
+
   const { data } = await ghFetch<{ tree: GHTreeItem[] }>(
     `/repos/${source.owner}/${source.repo}/git/trees/${branch}?recursive=1`,
     env,
   );
 
-  return path
+  const items = path
     ? data.tree.filter(item => item.path.startsWith(path + '/'))
     : data.tree;
+  cache?.set(key, items);
+  return items;
 }
 
 /** Fetch issues (not PRs) from the repo. */
-export async function fetchIssues(source: SourceConfig, env?: EngineEnv): Promise<GHIssue[]> {
+export async function fetchIssues(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<GHIssue[]> {
+  const key = `issues:${source.owner}/${source.repo}`;
+  const hit = cache?.get<GHIssue[]>(key);
+  if (hit !== undefined) return hit;
+
   const allIssues: GHIssue[] = [];
   let page = 1;
   const perPage = 100;
@@ -151,11 +172,16 @@ export async function fetchIssues(source: SourceConfig, env?: EngineEnv): Promis
     page++;
   }
 
+  cache?.set(key, allIssues);
   return allIssues;
 }
 
 /** Fetch pull requests from the repo. */
-export async function fetchPullRequests(source: SourceConfig, env?: EngineEnv): Promise<GHIssue[]> {
+export async function fetchPullRequests(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<GHIssue[]> {
+  const key = `prs:${source.owner}/${source.repo}`;
+  const hit = cache?.get<GHIssue[]>(key);
+  if (hit !== undefined) return hit;
+
   const allPRs: GHIssue[] = [];
   let page = 1;
   const perPage = 100;
@@ -170,22 +196,32 @@ export async function fetchPullRequests(source: SourceConfig, env?: EngineEnv): 
     page++;
   }
 
+  cache?.set(key, allPRs);
   return allPRs;
 }
 
 /** Fetch recent commits from the repo. */
-export async function fetchCommits(source: SourceConfig, count = 30, env?: EngineEnv): Promise<GHCommit[]> {
+export async function fetchCommits(source: SourceConfig, count = 30, env?: EngineEnv, cache?: CacheStore): Promise<GHCommit[]> {
+  const key = `commits:${source.owner}/${source.repo}`;
+  const hit = cache?.get<GHCommit[]>(key);
+  if (hit !== undefined) return hit;
+
   const branch = source.branch ?? 'main';
   const { data } = await ghFetch<GHCommit[]>(
     `/repos/${source.owner}/${source.repo}/commits?sha=${branch}&per_page=${count}`,
     env,
   );
 
+  cache?.set(key, data);
   return data;
 }
 
 /** Fetch GitHub releases (non-draft, newest-first, capped at 30). */
-export async function fetchReleases(source: SourceConfig, limit = 30, env?: EngineEnv): Promise<GHRelease[]> {
+export async function fetchReleases(source: SourceConfig, limit = 30, env?: EngineEnv, cache?: CacheStore): Promise<GHRelease[]> {
+  const key = `releases:${source.owner}/${source.repo}`;
+  const hit = cache?.get<GHRelease[]>(key);
+  if (hit !== undefined) return hit;
+
   const { data } = await ghFetch<Array<{
     tag_name: string;
     name: string | null;
@@ -209,6 +245,7 @@ export async function fetchReleases(source: SourceConfig, limit = 30, env?: Engi
       prerelease: r.prerelease ?? false,
     }));
 
+  cache?.set(key, releases);
   return releases;
 }
 
@@ -217,11 +254,12 @@ export async function fetchFiles(
   source: SourceConfig,
   paths: string[],
   env?: EngineEnv,
+  cache?: CacheStore,
 ): Promise<Map<string, string>> {
   const results = new Map<string, string>();
   const settled = await Promise.allSettled(
     paths.map(async path => {
-      const content = await fetchFile(source, path, env);
+      const content = await fetchFile(source, path, env, cache);
       return { path, content };
     })
   );

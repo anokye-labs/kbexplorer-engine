@@ -38,6 +38,7 @@ import {
   fetchFiles,
   fetchCommits,
   fetchReleases,
+  type CacheStore,
 } from '../github-client';
 import type { GHIssue, GHTreeItem, GHCommit, GHRelease } from '../github-types';
 import { loadConfig } from '../parser';
@@ -77,10 +78,10 @@ const MAX_STRUCTURAL_FILE_SIZE = 256 * 1024;
  * accepts both extensions for local manifest generation — remote mode must
  * not silently drop a repo's structured node map just because it uses `.yml`.
  */
-async function fetchStructuredNodeMap(source: SourceConfig, env?: EngineEnv): Promise<string | null> {
+async function fetchStructuredNodeMap(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<string | null> {
   for (const name of ['structured-node-map.yaml', 'structured-node-map.yml']) {
     try {
-      return await fetchFile(source, name, env);
+      return await fetchFile(source, name, env, cache);
     } catch {
       // Try the next extension.
     }
@@ -99,11 +100,13 @@ export class GitHubApiSource implements RepoSource {
   private readonly source: SourceConfig;
   private readonly preset: ResolutionPreset;
   private readonly env?: EngineEnv | undefined;
+  private readonly cache?: CacheStore | undefined;
 
-  constructor(source: SourceConfig, preset: ResolutionPreset = 'standard', env?: EngineEnv) {
+  constructor(source: SourceConfig, preset: ResolutionPreset = 'standard', env?: EngineEnv, cache?: CacheStore) {
     this.source = source;
     this.preset = preset;
     this.env = env;
+    this.cache = cache;
   }
 
   /** The locator of this repo's staging area (git index). */
@@ -296,16 +299,17 @@ export class GitHubApiSource implements RepoSource {
     const source = this.source;
     const preset = this.preset;
     const env = this.env;
-    const config = await loadConfig(source, env);
+    const cache = this.cache;
+    const config = await loadConfig(source, env, cache);
 
     const themeFilePromise = config.theme?.themesFile
-      ? fetchFile(source, config.theme.themesFile, env).catch(() => null)
+      ? fetchFile(source, config.theme.themesFile, env, cache).catch(() => null)
       : Promise.resolve<string | null>(null);
 
     const [issues, readme, releases, themeFileRaw] = await Promise.all([
-      fetchIssues(source, env).catch(() => [] as GHIssue[]),
-      fetchFile(source, 'README.md', env).catch(() => null),
-      fetchReleases(source, 30, env).catch(() => [] as GHRelease[]),
+      fetchIssues(source, env, cache).catch(() => [] as GHIssue[]),
+      fetchFile(source, 'README.md', env, cache).catch(() => null),
+      fetchReleases(source, 30, env, cache).catch(() => [] as GHRelease[]),
       themeFilePromise,
     ]);
 
@@ -319,19 +323,19 @@ export class GitHubApiSource implements RepoSource {
 
     if (preset === 'standard' || preset === 'full') {
       const [treeResult, prResult] = await Promise.all([
-        fetchTree(source, undefined, env).catch(() => [] as GHTreeItem[]),
-        fetchPullRequests(source, env).catch(() => [] as GHIssue[]),
+        fetchTree(source, undefined, env, cache).catch(() => [] as GHTreeItem[]),
+        fetchPullRequests(source, env, cache).catch(() => [] as GHIssue[]),
       ]);
       tree = treeResult;
       pullRequests = prResult;
 
       if (config.source.path) {
         try {
-          const contentTree = await fetchTree(source, config.source.path, env);
+          const contentTree = await fetchTree(source, config.source.path, env, cache);
           const mdFiles = contentTree
             .filter(item => item.type === 'blob' && item.path.endsWith('.md'))
             .map(item => item.path);
-          const files = await fetchFiles(source, mdFiles, env);
+          const files = await fetchFiles(source, mdFiles, env, cache);
           for (const [path, content] of files) {
             authoredContent[path] = content;
           }
@@ -351,20 +355,20 @@ export class GitHubApiSource implements RepoSource {
           )
           .map(item => item.path);
         if (structuralPaths.length > 0) {
-          const files = await fetchFiles(source, structuralPaths, env);
+          const files = await fetchFiles(source, structuralPaths, env, cache);
           for (const [path, content] of files) {
             if (content.length > MAX_STRUCTURAL_FILE_SIZE) continue;
             structuralFiles[path] = content;
           }
         }
-        structuredNodeMapRaw = await fetchStructuredNodeMap(source, env);
+        structuredNodeMapRaw = await fetchStructuredNodeMap(source, env, cache);
       } catch {
         // `.github` may not exist — safe no-op.
       }
     }
 
     if (preset === 'full') {
-      commits = await fetchCommits(source, 30, env).catch(() => [] as GHCommit[]);
+      commits = await fetchCommits(source, 30, env, cache).catch(() => [] as GHCommit[]);
     }
 
     return { issues, pullRequests, tree, readme, commits, releases, authoredContent, structuralFiles, structuredNodeMapRaw, contentModel, config, themeFileRaw: themeFileRaw ?? null };
@@ -372,10 +376,11 @@ export class GitHubApiSource implements RepoSource {
 
   private async fetchContentModel(config: KBConfig): Promise<ContentModelSource | null> {
     const env = this.env;
+    const cache = this.cache;
     const root = resolveStructuredContentPath(config, env);
     const explicitPath = hasExplicitStructuredContentPath(config, env);
     try {
-      const contentModelTree = await fetchTree(this.source, root, env);
+      const contentModelTree = await fetchTree(this.source, root, env, cache);
       const paths = contentModelTree
         .filter(item => item.type === 'blob')
         .map(item => item.path)
@@ -387,7 +392,7 @@ export class GitHubApiSource implements RepoSource {
         return null;
       }
 
-      const files = await fetchFiles(this.source, paths, env);
+      const files = await fetchFiles(this.source, paths, env, cache);
       const sourceFiles: Record<string, string> = {};
       for (const [path, content] of files) {
         const relativePath = path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;

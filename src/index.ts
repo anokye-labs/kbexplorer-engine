@@ -48,6 +48,10 @@ export type { IssueToNodeOptions } from './parser';
 // -- github-types.ts ----------------------------------------------------------
 export type { GHIssue, GHTreeItem, GHRelease, GHCommit } from './github-types';
 
+// -- github-client.ts ---------------------------------------------------------
+export type { CacheStore, GHFileContent } from './github-client';
+export { fetchFile, fetchTree, fetchIssues, fetchPullRequests, fetchCommits, fetchReleases, fetchFiles } from './github-client';
+
 // -- default-config.ts ---------------------------------------------------------
 export { DEFAULT_CONFIG } from './default-config';
 

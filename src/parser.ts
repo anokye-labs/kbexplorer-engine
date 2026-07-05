@@ -22,7 +22,7 @@ import { parseAccessLabel } from './access';
 import type { GHIssue, GHTreeItem } from './github-types';
 import type { EngineEnv } from './env';
 import { DEFAULT_CONFIG } from './default-config';
-import { fetchFile, fetchTree, fetchFiles, fetchIssues } from './github-client';
+import { fetchFile, fetchTree, fetchFiles, fetchIssues, type CacheStore } from './github-client';
 
 const DATE_FORMAT = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
 
@@ -199,13 +199,14 @@ export async function loadAuthoredContent(
   source: SourceConfig,
   contentPath: string,
   env?: EngineEnv,
+  cache?: CacheStore,
 ): Promise<KBNode[]> {
-  const tree = await fetchTree(source, contentPath, env);
+  const tree = await fetchTree(source, contentPath, env, cache);
   const mdFiles = tree
     .filter(item => item.type === 'blob' && item.path.endsWith('.md'))
     .map(item => item.path);
 
-  const files = await fetchFiles(source, mdFiles, env);
+  const files = await fetchFiles(source, mdFiles, env, cache);
   const nodes: KBNode[] = [];
 
   for (const [path, content] of files) {
@@ -574,11 +575,11 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
 }
 
 /** Load repo-aware content: issues, README, and directory structure. */
-export async function loadRepoContent(source: SourceConfig, env?: EngineEnv): Promise<KBNode[]> {
+export async function loadRepoContent(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<KBNode[]> {
   const [issues, tree, readme] = await Promise.all([
-    fetchIssues(source, env).catch(() => [] as GHIssue[]),
-    fetchTree(source, undefined, env).catch(() => [] as GHTreeItem[]),
-    fetchFile(source, 'README.md', env).catch(() => null),
+    fetchIssues(source, env, cache).catch(() => [] as GHIssue[]),
+    fetchTree(source, undefined, env, cache).catch(() => [] as GHTreeItem[]),
+    fetchFile(source, 'README.md', env, cache).catch(() => null),
   ]);
 
   const nodes: KBNode[] = [];
@@ -724,12 +725,13 @@ export function extractClusters(
 }
 
 /** Try to load config.yaml from the repo. Falls back to DEFAULT_CONFIG. */
-export async function loadConfig(source: SourceConfig, env?: EngineEnv): Promise<KBConfig> {
+export async function loadConfig(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<KBConfig> {
   try {
     const raw = await fetchFile(source, source.path
       ? `${source.path}/config.yaml`
       : 'content/config.yaml',
       env,
+      cache,
     );
     const parsed = yaml.parse(raw) as Partial<KBConfig>;
     return { ...DEFAULT_CONFIG, ...parsed, source };
