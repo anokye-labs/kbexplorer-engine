@@ -15,10 +15,14 @@ import type {
   EdgeType,
   DisplayMode,
   PageTheme,
+  SourceConfig,
 } from '@anokye-labs/kbexplorer-core';
 import { assignIdentity } from './identity';
 import { parseAccessLabel } from './access';
 import type { GHIssue, GHTreeItem } from './github-types';
+import type { EngineEnv } from './env';
+import { DEFAULT_CONFIG } from './default-config';
+import { fetchFile, fetchTree, fetchFiles, fetchIssues } from './github-client';
 
 const DATE_FORMAT = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' } satisfies Intl.DateTimeFormatOptions;
 
@@ -181,15 +185,39 @@ export function parseMarkdownFile(path: string, raw: string): KBNode {
   return node;
 }
 
-// NOTE (slice 1/5, anokye-labs/kbexplorer-template#472): `loadAuthoredContent`
-// is deferred to slice 4. It called the live GitHub REST client
-// (`fetchTree`/`fetchFiles` from kbexplorer-template's `src/api/github.ts`),
-// which has not migrated to this package yet — only the type shapes it needs
-// (`GHIssue`/`GHTreeItem`, see `./github-types`) moved in this slice. The
-// pure, side-effect-free parsing functions below (`parseMarkdownFile`,
-// `extractIssueRefs`, `issueToNode`, `splitIntoSections`, `treeToNodes`,
-// `extractClusters`) are unaffected and are the ones exported from this
-// package for now.
+// ── Repo-aware mode (slice 4/5): GitHub-client-backed loaders ──────────────
+//
+// `loadAuthoredContent`, `loadRepoContent`, and `loadConfig` were deferred in
+// slice 1 because they call the live GitHub REST client, which had not yet
+// migrated to this package. With `./github-client` now in place (a cache-free,
+// runtime-agnostic port), they land here. Each takes an optional `EngineEnv`
+// that is forwarded to the client so callers can inject a GitHub API base
+// without any build-time env coupling.
+
+/** Load authored content from a content directory in the repo. */
+export async function loadAuthoredContent(
+  source: SourceConfig,
+  contentPath: string,
+  env?: EngineEnv,
+): Promise<KBNode[]> {
+  const tree = await fetchTree(source, contentPath, env);
+  const mdFiles = tree
+    .filter(item => item.type === 'blob' && item.path.endsWith('.md'))
+    .map(item => item.path);
+
+  const files = await fetchFiles(source, mdFiles, env);
+  const nodes: KBNode[] = [];
+
+  for (const [path, content] of files) {
+    try {
+      nodes.push(parseMarkdownFile(path, content));
+    } catch {
+      console.warn(`[kbexplorer] Failed to parse ${path}, skipping`);
+    }
+  }
+
+  return nodes;
+}
 
 // ── Repo-aware mode ────────────────────────────────────────
 
@@ -545,9 +573,115 @@ export function treeToNodes(tree: GHTreeItem[], repoName: string, excludePaths?:
   return nodes;
 }
 
-// NOTE (slice 1/5): `loadRepoContent` is deferred to slice 4 for the same
-// reason as `loadAuthoredContent` above — it calls the live
-// `fetchIssues`/`fetchTree`/`fetchFile` GitHub client, not yet migrated.
+/** Load repo-aware content: issues, README, and directory structure. */
+export async function loadRepoContent(source: SourceConfig, env?: EngineEnv): Promise<KBNode[]> {
+  const [issues, tree, readme] = await Promise.all([
+    fetchIssues(source, env).catch(() => [] as GHIssue[]),
+    fetchTree(source, undefined, env).catch(() => [] as GHTreeItem[]),
+    fetchFile(source, 'README.md', env).catch(() => null),
+  ]);
+
+  const nodes: KBNode[] = [];
+
+  // Pre-compute the valid issue/PR id sets so issueToNode can filter phantom
+  // #NNN references (this used to produce hundreds of dangling edges).
+  const knownIssueNumbers = new Set(issues.filter(i => !(i as { pull_request?: unknown }).pull_request).map(i => i.number));
+  const knownPrNumbers = new Set(issues.filter(i => (i as { pull_request?: unknown }).pull_request).map(i => i.number));
+  const issueNodes = issues.map(i => issueToNode(i, {
+    knownIssueNumbers,
+    knownPrNumbers,
+    repoNodeId: 'repo-meta',
+  }));
+  const dirNodes = treeToNodes(tree, source.repo);
+
+  nodes.push(...issueNodes);
+  nodes.push(...dirNodes);
+
+  // README as a single node with content-based connections
+  if (readme) {
+    const readmeConns: Connection[] = [];
+    const lower = readme.toLowerCase();
+    const issueRefs = extractIssueRefs(readme);
+    for (const num of issueRefs) {
+      const id = `issue-${num}`;
+      if (issueNodes.some(n => n.id === id)) {
+        readmeConns.push({ to: id, type: 'cross_references', description: `References #${num}`, source: 'inline' });
+      }
+    }
+    for (const node of issueNodes) {
+      if (readmeConns.some(c => c.to === node.id)) continue;
+      const titleWords = node.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      if (titleWords.length === 0) continue;
+      const matchCount = titleWords.filter(w => lower.includes(w)).length;
+      if (matchCount >= Math.ceil(titleWords.length * 0.6)) {
+        readmeConns.push({ to: node.id, type: 'mentions', description: 'Mentions', source: 'inferred' });
+      }
+    }
+    for (const dir of dirNodes) {
+      const dirName = dir.title.replace(/\/$/, '');
+      if (lower.includes(`${dirName}/`) || lower.includes(`\`${dirName}\``)) {
+        readmeConns.push({ to: dir.id, type: 'references', description: `References ${dirName}/`, source: 'inferred' });
+      }
+    }
+    readmeConns.push({ to: 'repo-root', type: 'contains', description: 'Documents', source: 'inferred' });
+
+    // Extract inline markdown links from README body: [text](target)
+    const readmeConnectedTo = new Set(readmeConns.map(c => c.to));
+    for (const m of readme.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
+      const target = m[2]?.trim();
+      if (!target) continue;
+      if (target.startsWith('http') || target.startsWith('#') || target.startsWith('/')) continue;
+      if (target.match(/\.(png|jpg|jpeg|gif|svg|webp|md)$/i)) continue;
+      if (readmeConnectedTo.has(target)) continue;
+      readmeConns.push({ to: target, type: 'references', description: m[1] ?? '', source: 'inline' });
+      readmeConnectedTo.add(target);
+    }
+
+    const html = renderSafeMarkdown(readme);
+    nodes.push({
+      id: 'readme', title: 'README', cluster: 'docs',
+      content: html, rawContent: readme, emoji: 'Document',
+      parent: 'repo-root',
+      identity: 'urn:content:readme',
+      connections: readmeConns, source: { type: 'readme' },
+    });
+  }
+
+  // Split issues with 2+ headings into parent + section nodes
+  const expandedIssues: KBNode[] = [];
+  for (const node of issueNodes) {
+    const sectionNodes = splitIntoSections(
+      node.id, node.title, node.rawContent, node.cluster, node.emoji ?? 'Pin',
+      node.source, [...issueNodes, ...dirNodes],
+    );
+    if (sectionNodes.length > 0) {
+      // Replace flat issue with parent + sections
+      const idx = nodes.indexOf(node);
+      if (idx >= 0) nodes.splice(idx, 1);
+      expandedIssues.push(...sectionNodes);
+    }
+  }
+  nodes.push(...expandedIssues);
+
+  // Auto-link: issues → directories mentioned in their body
+  const dirNames = dirNodes.map(d => d.title.replace(/\/$/, '')); // e.g. "src", "public"
+  for (const node of issueNodes) {
+    for (let i = 0; i < dirNames.length; i++) {
+      const dir = dirNames[i];
+      const dirNode = dirNodes[i];
+      if (!dir || !dirNode) continue;
+      if (node.rawContent && (
+        node.rawContent.includes(`${dir}/`) ||
+        node.rawContent.includes(`\`${dir}\``) ||
+        node.rawContent.toLowerCase().includes(dir.toLowerCase())
+      )) {
+        node.connections.push({ to: dirNode.id, type: 'references', description: `References ${dir}/`, source: 'inferred' });
+      }
+    }
+  }
+
+  return nodes;
+}
 
 // ── Cluster extraction ─────────────────────────────────────
 
@@ -589,9 +723,17 @@ export function extractClusters(
   return [...configClusters.values()];
 }
 
-// NOTE (slice 1/5): `loadConfig` is deferred to slice 4 — it fetches
-// `config.yaml` via the live GitHub client (`fetchFile` from
-// kbexplorer-template's `src/api/github.ts`), which has not migrated here
-// yet. A Node-safe `KBConfig` fallback (`./default-config`'s `DEFAULT_CONFIG`,
-// with no Vite build-time env reads) is already in this package, ready for
-// `loadConfig` to use as its fallback once the fetch client lands.
+/** Try to load config.yaml from the repo. Falls back to DEFAULT_CONFIG. */
+export async function loadConfig(source: SourceConfig, env?: EngineEnv): Promise<KBConfig> {
+  try {
+    const raw = await fetchFile(source, source.path
+      ? `${source.path}/config.yaml`
+      : 'content/config.yaml',
+      env,
+    );
+    const parsed = yaml.parse(raw) as Partial<KBConfig>;
+    return { ...DEFAULT_CONFIG, ...parsed, source };
+  } catch {
+    return { ...DEFAULT_CONFIG, source };
+  }
+}

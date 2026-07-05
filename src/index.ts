@@ -30,8 +30,8 @@ export type { TrimResult } from './graph';
 export { EDGE_TYPE_WEIGHTS, getEdgeWeight } from './edge-weights';
 
 // -- parser.ts ----------------------------------------------------------------
-// NOTE: loadAuthoredContent / loadRepoContent / loadConfig are withheld —
-// they call the live GitHub client, which lands in slice 4.
+// Slice 4/5: loadAuthoredContent / loadRepoContent / loadConfig now land here —
+// the GitHub client they depend on migrated to ./github-client this slice.
 export {
   parseMarkdownFile,
   issueToNode,
@@ -39,6 +39,9 @@ export {
   extractIssueRefs,
   splitIntoSections,
   extractClusters,
+  loadAuthoredContent,
+  loadRepoContent,
+  loadConfig,
 } from './parser';
 export type { IssueToNodeOptions } from './parser';
 

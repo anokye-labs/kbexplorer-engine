@@ -1,16 +1,26 @@
 /**
- * Public `./sources` subpath — slice 3/5 of the kbexplorer-template ->
+ * Public `./sources` subpath — slices 3-4/5 of the kbexplorer-template ->
  * kbexplorer-engine migration (anokye-labs/kbexplorer-template#472, epic #463).
  *
- * `sources/repo-data.ts`'s real `RepoSource`/`RepoData`/`RepoPullRequest`/
- * `RepoMetadata` types superseded the placeholder `RepoSource` shape that
- * previously lived here (a scaffold stand-in with no real consumers, see
- * PR body for the slice-3 judgment call). `ManifestSource`/`GitHubApiSource`
- * remain placeholders: their real implementations are slice 4 scope.
+ * Slice 3 landed the `RepoSource`/`RepoData`/`RepoPullRequest`/`RepoMetadata`
+ * types. Slice 4 replaces the former placeholder `ManifestSource` /
+ * `GitHubApiSource` classes with their real implementations, relocates the
+ * `RepoManifest` snapshot shape into this package, and surfaces the
+ * GitHub-source-specific errors + the canonical endpoint-pattern list on this
+ * subpath.
  */
-export class ManifestSource {}
+export { ManifestSource } from './sources/manifest-source';
+export { GitHubApiSource } from './sources/github-api-source';
+export type { ResolutionPreset } from './sources/github-api-source';
 
-export class GitHubApiSource {}
+export type { RepoManifest } from './sources/repo-manifest';
+
+export {
+  GITHUB_ENDPOINT_PATTERNS,
+  NotModifiedError,
+  RateLimitError,
+  GitHubApiError,
+} from './github-client';
 
 export type {
   RepoSource,
