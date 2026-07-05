@@ -70,8 +70,13 @@ describe('structural graph integration (#167)', () => {
 
     const workflow = graph.nodes.find(n => n.entityType === 'workflow');
     expect(workflow).toBeDefined();
-    // No repo-meta target, but the node is still reachable via orphan fallback.
-    const hasEdge = graph.edges.some(e => e.from === workflow!.id || e.to === workflow!.id);
-    expect(hasEdge).toBe(true);
+    // With no repo-meta and no siblings this workflow is the sole node. It must
+    // still be produced, but orphan-reconnection must NOT fabricate a
+    // `workflow → workflow` self-loop just to make it "reachable" — a self-edge
+    // conveys no real relationship. A genuinely isolated node stays edgeless.
+    for (const e of graph.edges) {
+      expect(e.from).not.toBe(e.to);
+    }
+    expect(graph.edges).toHaveLength(0);
   });
 });

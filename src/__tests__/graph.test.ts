@@ -103,6 +103,27 @@ describe('buildGraph', () => {
     expect(['hub', 'sibling']).toContain(orphanEdge!.from);
   });
 
+  it('never emits a self-loop when reconnecting orphans in an all-orphan graph', () => {
+    // Every node is an orphan (no resolvable connections), so the hub
+    // degenerates to the first node — which is itself an orphan. Reconnection
+    // must not produce a spurious `X -related-> X` self-loop (regression: a
+    // content-only FileSystemSource build where each authored node's only
+    // connection is a suppressed `derived_from` file-tree edge).
+    const nodes = [
+      makeNode('alpha', { cluster: 'docs' }),
+      makeNode('beta', { cluster: 'docs' }),
+    ];
+    const graph = buildGraph(nodes, clusters);
+
+    for (const e of graph.edges) {
+      expect(e.from).not.toBe(e.to);
+    }
+    // A single isolated node has no one to anchor to and stays edgeless
+    // rather than pointing at itself.
+    const solo = buildGraph([makeNode('only', { cluster: 'docs' })], clusters);
+    expect(solo.edges).toHaveLength(0);
+  });
+
   it('handles empty node list', () => {
     const graph = buildGraph([], clusters);
 

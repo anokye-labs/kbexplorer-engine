@@ -61,7 +61,13 @@ export function buildGraph(nodes: KBNode[], clusters: Cluster[]): KBGraph {
       // Try to find a same-cluster node that's already connected
       const sibling = nodes.find(n => n.id !== orphan.id && n.cluster === orphan.cluster && connected.has(n.id));
       const targetId = sibling?.id ?? hubId;
-      if (targetId) {
+      // Never emit a self-loop. In an all-orphan graph (e.g. a content-only
+      // FileSystemSource build where every authored node's only connection is a
+      // suppressed `derived_from` file-tree edge) the hub degenerates to the
+      // first node, which may be the orphan itself — reconnecting it to itself
+      // would produce a spurious `X -related-> X` edge. Leave such a node
+      // unconnected instead; a later orphan can still anchor to it as the hub.
+      if (targetId && targetId !== orphan.id) {
         edges.push({ from: targetId, to: orphan.id, type: 'related', description: 'Related', source: 'inferred', weight: EDGE_TYPE_WEIGHTS.related });
         connected.add(orphan.id);
       }
