@@ -200,6 +200,28 @@ export { collectProviderNodes, orchestrate, orchestrateWithTransforms } from './
 export { registerProviders, loadKnowledgeBase } from './loader';
 export type { LoadKnowledgeBaseOptions } from './loader';
 
+// -- validate-graph.ts (anokye-labs/kbexplorer-engine#18) --------------------------------------
+export { validateGraph } from './validate-graph';
+export type {
+  GraphValidationInput,
+  GraphValidationResult,
+  ValidationFinding,
+  ValidationRule,
+  ValidationSeverity,
+} from './validate-graph';
+
+// -- assess-graph.ts (anokye-labs/kbexplorer-engine#18) ----------------------------------------
+export { assessGraph } from './assess-graph';
+export type {
+  GraphAssessmentInput,
+  AssessGraphOptions,
+  AssessmentResult,
+  QualityScores,
+  GraphAssessmentConstraint,
+  HubReachability,
+  GraphAssessmentGate,
+} from './assess-graph';
+
 // -- sources/build-manifest.ts (anokye-labs/kbexplorer-engine#17) ------------------------------
 // The manifest PRODUCER. Exported from the core entry (unlike `RepoSource`,
 // `GitHubApiSource`, and `FileSystemSource`, which stay `./sources`-subpath-only
