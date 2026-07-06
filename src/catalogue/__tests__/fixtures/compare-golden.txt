@@ -1,0 +1,16 @@
+[compare] Comparing catalogue (7 nodes) to content/ (6 files)
+
+[compare] ── Coverage ──
+[compare] Authored (preserved):     1
+[compare] Derived (current):        4
+[compare] Missing (needs gen):      2
+[compare] Extra (not in catalogue): 1
+[compare]   architecture: needs generation
+[compare]   missing-node: needs generation
+[compare]   orphan: orphaned from catalogue
+
+[compare] ── Drift ──
+[compare] Cluster changes: 1
+[compare]   cluster-drift: core → reference
+[compare] Link count changes: 1 nodes differ by >3 links
+[compare]   link-diff: catalogue=4, file=0

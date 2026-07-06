@@ -1,0 +1,48 @@
+{
+  "total": 7,
+  "authored": 3,
+  "derived": 4,
+  "nodes": [
+    {
+      "id": "api-guide",
+      "title": "API Guide",
+      "cluster": "reference",
+      "file": "api-guide.md",
+      "prompt": "Summarize the public API surface.",
+      "edgeHints": [
+        "overview",
+        "architecture"
+      ]
+    },
+    {
+      "id": "missing-node",
+      "title": "Missing Node",
+      "cluster": "reference",
+      "file": "missing-node.md",
+      "prompt": "Describe the missing thing."
+    },
+    {
+      "id": "cluster-drift",
+      "title": "Cluster Drift Example",
+      "cluster": "reference",
+      "file": "cluster-drift.md",
+      "prompt": "Explain cluster drift.",
+      "edgeHints": [
+        "overview"
+      ]
+    },
+    {
+      "id": "link-diff",
+      "title": "Link Diff Example",
+      "cluster": "reference",
+      "file": "link-diff.md",
+      "prompt": "Explain link drift.",
+      "edgeHints": [
+        "overview",
+        "architecture",
+        "api-guide",
+        "faq"
+      ]
+    }
+  ]
+}

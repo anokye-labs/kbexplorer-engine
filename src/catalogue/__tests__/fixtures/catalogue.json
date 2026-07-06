@@ -1,0 +1,61 @@
+{
+  "nodes": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "cluster": "core",
+      "file": "overview.md",
+      "authored": true
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "cluster": "core",
+      "file": "architecture.md",
+      "authored": true
+    },
+    {
+      "id": "api-guide",
+      "title": "API Guide",
+      "cluster": "reference",
+      "file": "api-guide.md",
+      "prompt": "Summarize the public API surface.",
+      "derived": true,
+      "edgeHints": ["overview", "architecture"]
+    },
+    {
+      "id": "faq",
+      "title": "FAQ",
+      "cluster": "reference",
+      "file": "faq.md",
+      "prompt": "Answer common questions.",
+      "derived": true
+    },
+    {
+      "id": "missing-node",
+      "title": "Missing Node",
+      "cluster": "reference",
+      "file": "missing-node.md",
+      "prompt": "Describe the missing thing.",
+      "derived": true
+    },
+    {
+      "id": "cluster-drift",
+      "title": "Cluster Drift Example",
+      "cluster": "reference",
+      "file": "cluster-drift.md",
+      "prompt": "Explain cluster drift.",
+      "derived": true,
+      "edgeHints": ["overview"]
+    },
+    {
+      "id": "link-diff",
+      "title": "Link Diff Example",
+      "cluster": "reference",
+      "file": "link-diff.md",
+      "prompt": "Explain link drift.",
+      "derived": true,
+      "edgeHints": ["overview", "architecture", "api-guide", "faq"]
+    }
+  ]
+}

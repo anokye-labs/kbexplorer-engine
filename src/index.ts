@@ -209,3 +209,27 @@ export type { LoadKnowledgeBaseOptions } from './loader';
 // still import the concrete `RepoSource` implementations from `./sources`.
 export { buildManifest } from './sources/build-manifest';
 export type { BuildManifestOptions } from './sources/build-manifest';
+
+// -- catalogue/ (anokye-labs/kbexplorer-engine#19) -----------------------------------------------
+// Catalogue-pipeline helpers (derive-needs / compare / enrich-from-manifest),
+// ported faithfully from kbexplorer-template's derive-content.js /
+// compare-content.js / enrich-context.js. Pure data in, data out — no fs
+// access, no console formatting, no process.exit (that's the CLI's job).
+export { deriveNeeds, compareContent, enrichFromManifest } from './catalogue';
+export type {
+  Catalogue,
+  CatalogueNode,
+  CatalogueContentFiles,
+  DeriveNeedsNode,
+  DeriveNeedsResult,
+  ClusterChange,
+  LinkCountDiff,
+  CompareContentResult,
+  RelatedIssue,
+  RelatedPullRequest,
+  RelatedCommit,
+  EnrichedCatalogueNode,
+  EnrichedCatalogue,
+  EnrichFromManifestSummary,
+  EnrichFromManifestResult,
+} from './catalogue';
