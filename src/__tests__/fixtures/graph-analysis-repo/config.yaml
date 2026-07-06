@@ -1,0 +1,8 @@
+title: Fixture KB
+clusters:
+  core:
+    name: Core
+    color: "#4A9CC8"
+  extras:
+    name: Extras
+    color: "#8CB050"

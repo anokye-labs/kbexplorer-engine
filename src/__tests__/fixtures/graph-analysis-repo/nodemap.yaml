@@ -1,0 +1,11 @@
+nodes:
+  - id: home-file
+    file: content/home.md
+  - id: ghost-file
+    file: content/does-not-exist.md
+  - id: docs-dir
+    directory: docs
+  - id: multi-files
+    files:
+      - content/alpha.md
+      - content/nope.md

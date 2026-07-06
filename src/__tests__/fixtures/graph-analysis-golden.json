@@ -1,0 +1,111 @@
+{
+  "_comment": "Golden fixture parity snapshot (anokye-labs/kbexplorer-engine#18 acceptance criteria): captured by running kbexplorer-template's actual scripts/validate-graph.js (commit 374bb0630af22c3dc53034d872fbc70a197b552a) and scripts/assess-graph.js (commit 831d0985b385f67a7bb72b78d3adc57d8c5a551c) from anokye-labs/kbexplorer-template@main against ./graph-analysis-repo, with a small appended capture block (writeFileSync of the in-scope variables as JSON) replacing each script's console-log-only summary — the validation/scoring LOGIC itself is untouched. This is a committed snapshot, not regenerated at test time, so the parity test has no network/CLI dependency and no drift risk from template changes landing silently. assess-graph.js was captured with --gate semantics always evaluated (the real script only evaluates gate scoring when passed '--gate'; scores/suggestions are identical either way).",
+  "validate": {
+    "contentCount": 7,
+    "issueCount": 0,
+    "treeCount": 0,
+    "brokenLinks": [
+      {
+        "from": "home",
+        "target": "missing-node"
+      }
+    ],
+    "missingGhLinks": [
+      {
+        "from": "home",
+        "target": "issue-1"
+      },
+      {
+        "from": "home",
+        "target": "pr-1"
+      }
+    ],
+    "duplicates": [
+      "dup"
+    ],
+    "orphans": [
+      "dup",
+      "empty",
+      "gamma"
+    ],
+    "badClusters": [
+      {
+        "id": "gamma",
+        "cluster": "bogus"
+      }
+    ],
+    "missingNodemapFiles": [
+      {
+        "id": "ghost-file",
+        "file": "content/does-not-exist.md"
+      },
+      {
+        "id": "docs-dir",
+        "file": "docs"
+      },
+      {
+        "id": "multi-files",
+        "file": "content/nope.md"
+      }
+    ],
+    "emptyContent": [
+      "empty"
+    ],
+    "warnings": 6,
+    "errors": 6,
+    "exitCode": 1
+  },
+  "assess": {
+    "nodeCount": 7,
+    "edgeCount": 7,
+    "clusterCount": 3,
+    "orphans": [
+      "dup",
+      "dup",
+      "empty",
+      "gamma"
+    ],
+    "hubId": "home",
+    "maxHops": 1,
+    "unreachable": [
+      "empty",
+      "gamma"
+    ],
+    "avgLinks": 1,
+    "connectivityScore": 25,
+    "clusterSizes": [
+      5,
+      1,
+      1
+    ],
+    "clusterStdDev": 1.8856180831641267,
+    "clusterBalanceScore": 72,
+    "density": 0.3333333333333333,
+    "densityScore": 95,
+    "reciprocalCount": 4,
+    "bidirPct": 57.14285714285714,
+    "bidirScore": 57,
+    "avgContentLen": 65.14285714285714,
+    "depthScore": 7,
+    "suggestions": [
+      "Node \"dup\" has 0 incoming links — add a reference from a parent node",
+      "Node \"dup\" has 0 incoming links — add a reference from a parent node",
+      "Node \"empty\" has 0 incoming links — add a reference from a parent node",
+      "Node \"gamma\" has 0 incoming links — add a reference from a parent node",
+      "Nodes dup and dup have identical title \"duplicate node\" — possible duplicate"
+    ],
+    "gatePass": false,
+    "gateFailures": [
+      {
+        "metric": "connectivity",
+        "actual": 25,
+        "minimum": 50
+      },
+      {
+        "metric": "contentDepth",
+        "actual": 7,
+        "minimum": 60
+      }
+    ]
+  }
+}
