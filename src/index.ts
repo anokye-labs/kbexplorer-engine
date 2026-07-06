@@ -199,3 +199,13 @@ export { collectProviderNodes, orchestrate, orchestrateWithTransforms } from './
 // -- loader.ts (slice 3) -------------------------------------------------------------------
 export { registerProviders, loadKnowledgeBase } from './loader';
 export type { LoadKnowledgeBaseOptions } from './loader';
+
+// -- sources/build-manifest.ts (anokye-labs/kbexplorer-engine#17) ------------------------------
+// The manifest PRODUCER. Exported from the core entry (unlike `RepoSource`,
+// `GitHubApiSource`, and `FileSystemSource`, which stay `./sources`-subpath-only
+// because `FileSystemSource` is Node-specific) because `buildManifest` itself
+// has no Node/DOM-specific imports — it only accepts an already-constructed
+// `RepoSource` and reshapes its `RepoData` into a `RepoManifest`. Consumers
+// still import the concrete `RepoSource` implementations from `./sources`.
+export { buildManifest } from './sources/build-manifest';
+export type { BuildManifestOptions } from './sources/build-manifest';

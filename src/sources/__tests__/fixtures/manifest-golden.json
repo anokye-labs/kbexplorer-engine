@@ -1,0 +1,38 @@
+{
+  "_comment": "Golden source-derived fields captured by running kbexplorer-template's scripts/generate-manifest.js (generateManifest()) against ./manifest-repo, then keeping only the fields buildManifest() derives from a RepoSource's local (FileSystemSource) acquisition path. Volatile/live-GitHub fields (issues, pullRequests, commits, branches, repoMetadata, generatedAt) are intentionally excluded — they come from `gh`/`git` CLI calls the template script makes directly and are NOT part of the RepoSource/RepoData contract FileSystemSource implements (it leaves them as documented safe no-ops; see filesystem-source.test.ts). `tree` entries are compared ignoring `size`: FileSystemSource's walk() (existing, pre-#17 behavior) does not stat files, while the template's walkFileSystem() does — an existing, out-of-scope engine/template divergence, not something buildManifest introduces.",
+  "tree": [
+    { "path": ".github", "type": "tree" },
+    { "path": ".github/CODEOWNERS", "type": "blob", "size": 11 },
+    { "path": ".github/workflows", "type": "tree" },
+    { "path": ".github/workflows/ci.yml", "type": "blob", "size": 116 },
+    { "path": "config.yaml", "type": "blob", "size": 54 },
+    { "path": "content", "type": "tree" },
+    { "path": "content/alpha.md", "type": "blob", "size": 66 },
+    { "path": "content/beta.md", "type": "blob", "size": 62 },
+    { "path": "content-model", "type": "tree" },
+    { "path": "content-model/entities", "type": "tree" },
+    { "path": "content-model/entities/thing.yaml", "type": "blob", "size": 25 },
+    { "path": "content-model/schema.yaml", "type": "blob", "size": 24 },
+    { "path": "README.md", "type": "blob", "size": 23 }
+  ],
+  "authoredContent": {
+    "content/alpha.md": "---\nid: alpha\ntitle: Alpha\ncluster: core\n---\n# Alpha\n\nBody alpha.\n",
+    "content/beta.md": "---\nid: beta\ntitle: Beta\ncluster: core\n---\n# Beta\n\nBody beta.\n"
+  },
+  "readme": "# Fixture Repo\n\nHello.\n",
+  "structuralFiles": {
+    ".github/CODEOWNERS": "* @octocat\n",
+    ".github/workflows/ci.yml": "name: CI\non:\n  push:\n    branches: [main]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"
+  },
+  "contentModel": {
+    "root": "content-model",
+    "files": {
+      "entities/thing.yaml": "kind: entity\nid: thing-1\n",
+      "schema.yaml": "kind: schema\nname: demo\n"
+    }
+  },
+  "configRaw": "clusters:\n  core:\n    name: Core\n    color: '#000000'\n",
+  "nodemapRaw": null,
+  "structuredNodeMapRaw": null,
+  "themeFileRaw": null
+}
