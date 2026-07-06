@@ -97,6 +97,32 @@ afterEach(() => {
 
 // ── Tests ─────────────────────────────────────────────────
 
+describe('ghFetch authorization', () => {
+  it('adds Authorization header when GITHUB_TOKEN is injected', async () => {
+    await github.fetchTree(source, undefined, { GITHUB_TOKEN: 'x' });
+    const [, init] = fetchMock.mock.calls[0] as [string, { headers?: Record<string, string> } | undefined];
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer x' });
+  });
+
+  it('adds Authorization header when GH_TOKEN is injected', async () => {
+    await github.fetchTree(source, undefined, { GH_TOKEN: 'y' });
+    const [, init] = fetchMock.mock.calls[0] as [string, { headers?: Record<string, string> } | undefined];
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer y' });
+  });
+
+  it('omits Authorization header when no token is injected', async () => {
+    await github.fetchTree(source);
+    const [, init] = fetchMock.mock.calls[0] as [string, { headers?: Record<string, string> } | undefined];
+    expect(init?.headers).not.toHaveProperty('Authorization');
+  });
+
+  it('prefers GITHUB_TOKEN over GH_TOKEN when both are injected', async () => {
+    await github.fetchTree(source, undefined, { GITHUB_TOKEN: 'x', GH_TOKEN: 'y' });
+    const [, init] = fetchMock.mock.calls[0] as [string, { headers?: Record<string, string> } | undefined];
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer x' });
+  });
+});
+
 describe('fetchTree', () => {
   it('returns all tree items from fixture', async () => {
     const items = await github.fetchTree(source);
