@@ -105,6 +105,11 @@ describe('buildManifest — remote (GitHubApiSource) assembly', () => {
       contentModel: null,
       config: DEFAULT_CONFIG,
       themeFileRaw: null,
+      branches: [],
+      repoMetadata: null,
+      nodemapRaw: null,
+      nodemapFiles: {},
+      nodemapDirs: {},
     });
     return src;
   }
@@ -138,11 +143,47 @@ describe('buildManifest — remote (GitHubApiSource) assembly', () => {
     expect((pr as unknown as { assignees?: unknown }).assignees).toBeUndefined();
   });
 
-  it('omits branches/repoMetadata/nodemapRaw when the source has none (GitHubApiSource never fetches them today)', async () => {
+  it('omits branches/repoMetadata/nodemapRaw when the seeded fetch has none', async () => {
     const manifest = await buildManifest(seedSource());
     expect(manifest.branches).toBeUndefined();
     expect(manifest.repoMetadata).toBeUndefined();
     expect(manifest.nodemapRaw).toBeUndefined();
     expect(manifest.contentModel).toBeUndefined();
+  });
+
+  it('surfaces branches/repoMetadata/nodemapRaw/nodemapFiles/nodemapDirs when the source has them', async () => {
+    const src = new GitHubApiSource(DEFAULT_CONFIG.source, 'full');
+    (src as unknown as { fetchPromise: Promise<unknown> }).fetchPromise = Promise.resolve({
+      issues: [],
+      pullRequests: [],
+      tree: [{ path: 'src/a.ts', type: 'blob' }],
+      readme: null,
+      commits: [],
+      releases: [],
+      authoredContent: {},
+      structuralFiles: {},
+      structuredNodeMapRaw: null,
+      contentModel: null,
+      config: DEFAULT_CONFIG,
+      themeFileRaw: null,
+      branches: [{ name: 'main', protected: true }],
+      repoMetadata: {
+        name: 'demo', description: 'A demo', html_url: 'https://x', homepage: '',
+        default_branch: 'main', stargazers_count: 1, forks_count: 0, private: false,
+        topics: ['kb'], primary_language: 'TypeScript', languages: [{ name: 'TypeScript', size: 100 }],
+        owner: { login: 'acme', avatar_url: 'https://x/a.png' },
+      },
+      nodemapRaw: 'nodes:\n  - id: a\n    file: src/a.ts\n',
+      nodemapFiles: { 'src/a.ts': 'export const a = 1;\n' },
+      nodemapDirs: {},
+    });
+
+    const manifest = await buildManifest(src);
+    expect(manifest.branches).toEqual([{ name: 'main', protected: true }]);
+    expect(manifest.repoMetadata?.name).toBe('demo');
+    expect(manifest.repoMetadata?.homepage).toBe('');
+    expect(manifest.nodemapRaw).toBe('nodes:\n  - id: a\n    file: src/a.ts\n');
+    expect(manifest.nodemapFiles).toEqual({ 'src/a.ts': 'export const a = 1;\n' });
+    expect(manifest.nodemapDirs).toBeUndefined();
   });
 });

@@ -10,6 +10,7 @@ import { renderSafeMarkdown } from './safe-markdown';
 import yaml from 'yaml';
 import type { KBNode, DisplayMode, NodeSource, Connection } from '@anokye-labs/kbexplorer-core';
 import { splitIntoSections } from './parser';
+import type { GHTreeItem } from './github-types';
 
 // ── nodemap.yaml schema ─────────────────────────────────────
 // These describe the shape of a `nodemap.yaml` config file. They are
@@ -516,4 +517,74 @@ export async function loadNodeMap(
   deriveConnections(allNodes, map.nodes, entryNodeIds);
 
   return allNodes;
+}
+
+/** Raw `nodemapFiles`/`nodemapDirs` maps a `RepoManifest` snapshot carries. */
+export interface CollectedNodemapData {
+  nodemapFiles: Record<string, string>;
+  nodemapDirs: Record<string, GHTreeItem[]>;
+}
+
+/**
+ * Expand a nodemap.yaml's `file`/`files`/`glob`(`each: file`)/`directory`
+ * entries against a file tree + IO callbacks, producing the raw
+ * `nodemapFiles`/`nodemapDirs` maps a `RepoManifest` snapshot carries. Mirrors
+ * kbexplorer-template's `collectNodemapData` in
+ * `scripts/generate-manifest.js` (anokye-labs/kbexplorer-engine#23).
+ *
+ * Boundary-pure and IO-agnostic like {@link loadNodeMap}: the caller supplies
+ * `readFile` (single-file read, `null` when missing) and `listDirectory`
+ * (one-level directory listing), so the same shaping logic drives both a
+ * local disk source and a remote GitHub-API source. Unlike `loadNodeMap` this
+ * produces raw content maps (for manifest snapshots), not `KBNode[]`.
+ */
+export async function collectNodemapData(
+  nodemapRaw: string,
+  tree: GHTreeItem[],
+  readFile: (path: string) => Promise<string | null>,
+  listDirectory: (dir: string) => Promise<GHTreeItem[]>,
+): Promise<CollectedNodemapData> {
+  let map: NodeMap;
+  try {
+    map = yaml.parse(nodemapRaw) as NodeMap;
+  } catch {
+    return { nodemapFiles: {}, nodemapDirs: {} };
+  }
+  if (!map?.nodes?.length) return { nodemapFiles: {}, nodemapDirs: {} };
+
+  const nodemapFiles: Record<string, string> = {};
+  const nodemapDirs: Record<string, GHTreeItem[]> = {};
+
+  const expandGlob = (pattern: string, exclude?: string[]): string[] => {
+    const regex = globToRegex(pattern);
+    let matches = tree.filter(e => e.type === 'blob' && regex.test(e.path)).map(e => e.path);
+    if (exclude?.length) {
+      matches = matches.filter(p => !matchesAnyGlob(p, exclude));
+    }
+    return matches;
+  };
+
+  for (const entry of map.nodes) {
+    if (entry.file) {
+      const content = await readFile(entry.file);
+      if (content !== null) nodemapFiles[entry.file] = content;
+    }
+    if (entry.files) {
+      for (const f of entry.files) {
+        const content = await readFile(f);
+        if (content !== null) nodemapFiles[f] = content;
+      }
+    }
+    if (entry.glob && entry.each === 'file') {
+      for (const match of expandGlob(entry.glob, entry.exclude)) {
+        const content = await readFile(match);
+        if (content !== null) nodemapFiles[match] = content;
+      }
+    }
+    if (entry.directory) {
+      nodemapDirs[entry.directory] = await listDirectory(entry.directory);
+    }
+  }
+
+  return { nodemapFiles, nodemapDirs };
 }

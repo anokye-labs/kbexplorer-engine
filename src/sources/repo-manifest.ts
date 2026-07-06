@@ -42,6 +42,8 @@ export interface RepoManifest {
     name: string;
     description: string;
     html_url: string;
+    /** Repo homepage URL (blank when unset). Matches the old generator's 12-key `fetchRepoMetadata` shape. */
+    homepage: string;
     default_branch: string;
     stargazers_count: number;
     forks_count: number;

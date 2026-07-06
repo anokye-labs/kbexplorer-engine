@@ -47,6 +47,8 @@ describe('buildManifest — golden parity with template generate-manifest.js', (
       contentModel: { root: string; files: Record<string, string> } | null;
       configRaw: string | null;
       nodemapRaw: string | null;
+      nodemapFiles: Record<string, string>;
+      nodemapDirs: Record<string, TreeItem[]>;
       structuredNodeMapRaw: string | null;
       themeFileRaw: string | null;
     };
@@ -62,6 +64,10 @@ describe('buildManifest — golden parity with template generate-manifest.js', (
     expect(manifest.contentModel).toEqual(golden.contentModel);
     expect(manifest.configRaw).toBe(golden.configRaw);
     expect(manifest.nodemapRaw ?? null).toBe(golden.nodemapRaw);
+    expect(manifest.nodemapFiles ?? {}).toEqual(golden.nodemapFiles);
+    // nodemapDirs entries carry `size` — compared as-is (not stripped) since
+    // both sides stat the directory's files, unlike the main `tree` walk.
+    expect(manifest.nodemapDirs ?? {}).toEqual(golden.nodemapDirs);
     expect(manifest.structuredNodeMapRaw ?? null).toBe(golden.structuredNodeMapRaw);
     expect(manifest.themeFileRaw ?? null).toBe(golden.themeFileRaw);
   });
