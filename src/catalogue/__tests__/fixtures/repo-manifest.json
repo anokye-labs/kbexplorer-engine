@@ -1,0 +1,79 @@
+{
+  "configRaw": null,
+  "authoredContent": {},
+  "tree": [],
+  "readme": null,
+  "issues": [
+    {
+      "number": 101,
+      "title": "Add architecture overview",
+      "body": "We need an architecture doc, see architecture.md for details.",
+      "state": "open",
+      "html_url": "https://github.com/acme/repo/issues/101",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z",
+      "labels": []
+    },
+    {
+      "number": 102,
+      "title": "Random issue",
+      "body": "unrelated stuff about donuts",
+      "state": "closed",
+      "html_url": "https://github.com/acme/repo/issues/102",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z",
+      "labels": []
+    },
+    {
+      "number": 103,
+      "title": "Overview clarification needed",
+      "body": "the overview page needs love",
+      "state": "open",
+      "html_url": "https://github.com/acme/repo/issues/103",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z",
+      "labels": []
+    }
+  ],
+  "pullRequests": [
+    {
+      "number": 55,
+      "title": "Update api-guide.md content",
+      "body": "Adds new content to api-guide.md",
+      "state": "open",
+      "labels": [],
+      "html_url": "https://github.com/acme/repo/pull/55",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+    {
+      "number": 56,
+      "title": "Unrelated PR",
+      "body": "fixes ci pipeline",
+      "state": "merged",
+      "labels": [],
+      "html_url": "https://github.com/acme/repo/pull/56",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    }
+  ],
+  "commits": [
+    {
+      "sha": "abcdef1234567890",
+      "commit": {
+        "message": "Update overview.md wording",
+        "author": { "name": "Dev", "date": "2024-01-01T00:00:00Z" }
+      },
+      "html_url": "https://github.com/acme/repo/commit/abcdef1234567890"
+    },
+    {
+      "sha": "1112223334445556",
+      "commit": {
+        "message": "chore: bump deps",
+        "author": { "name": "Dev", "date": "2024-01-02T00:00:00Z" }
+      },
+      "html_url": "https://github.com/acme/repo/commit/1112223334445556"
+    }
+  ],
+  "generatedAt": "2024-01-01T00:00:00.000Z"
+}

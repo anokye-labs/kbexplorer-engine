@@ -4,8 +4,11 @@ import {
   applyTransforms,
   assignIdentity,
   buildGraph,
+  compareContent,
   DEFAULT_CONFIG,
   DEFAULT_TRANSFORMS,
+  deriveNeeds,
+  enrichFromManifest,
   extractClusters,
   getRegisteredTypes,
   globToRegex,
@@ -51,6 +54,23 @@ describe('package entrypoints', () => {
 
     // extractClusters — parser.ts
     expect(extractClusters([node], DEFAULT_CONFIG)).toBeDefined();
+
+    // catalogue/ (anokye-labs/kbexplorer-engine#19)
+    const catalogue = { nodes: [{ id: 'a', authored: true }] };
+    expect(deriveNeeds(catalogue, {})).toEqual({ total: 1, authored: 1, derived: 0, nodes: [] });
+    expect(compareContent(catalogue, {}).missingNodes).toHaveLength(1);
+    expect(
+      enrichFromManifest(catalogue, {
+        configRaw: null,
+        authoredContent: {},
+        tree: [],
+        readme: null,
+        issues: [],
+        pullRequests: [],
+        commits: [],
+        generatedAt: '',
+      }).summary.totalNodes,
+    ).toBe(1);
   });
 
   it('exports the source/store entry points', () => {

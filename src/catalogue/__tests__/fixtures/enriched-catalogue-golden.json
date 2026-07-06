@@ -1,0 +1,124 @@
+{
+  "nodes": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "cluster": "core",
+      "file": "overview.md",
+      "authored": true,
+      "relatedIssues": [
+        {
+          "number": 101,
+          "title": "Add architecture overview",
+          "state": "open",
+          "snippet": "We need an architecture doc, see architecture.md for details."
+        },
+        {
+          "number": 103,
+          "title": "Overview clarification needed",
+          "state": "open",
+          "snippet": "the overview page needs love"
+        }
+      ],
+      "relatedPRs": [],
+      "recentCommits": [
+        {
+          "sha": "abcdef1",
+          "message": "Update overview.md wording"
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "cluster": "core",
+      "file": "architecture.md",
+      "authored": true,
+      "relatedIssues": [
+        {
+          "number": 101,
+          "title": "Add architecture overview",
+          "state": "open",
+          "snippet": "We need an architecture doc, see architecture.md for details."
+        }
+      ],
+      "relatedPRs": [],
+      "recentCommits": []
+    },
+    {
+      "id": "api-guide",
+      "title": "API Guide",
+      "cluster": "reference",
+      "file": "api-guide.md",
+      "prompt": "Summarize the public API surface.",
+      "derived": true,
+      "edgeHints": [
+        "overview",
+        "architecture"
+      ],
+      "relatedIssues": [],
+      "relatedPRs": [
+        {
+          "number": 55,
+          "title": "Update api-guide.md content",
+          "state": "open",
+          "snippet": "Adds new content to api-guide.md"
+        }
+      ],
+      "recentCommits": []
+    },
+    {
+      "id": "faq",
+      "title": "FAQ",
+      "cluster": "reference",
+      "file": "faq.md",
+      "prompt": "Answer common questions.",
+      "derived": true,
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "recentCommits": []
+    },
+    {
+      "id": "missing-node",
+      "title": "Missing Node",
+      "cluster": "reference",
+      "file": "missing-node.md",
+      "prompt": "Describe the missing thing.",
+      "derived": true,
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "recentCommits": []
+    },
+    {
+      "id": "cluster-drift",
+      "title": "Cluster Drift Example",
+      "cluster": "reference",
+      "file": "cluster-drift.md",
+      "prompt": "Explain cluster drift.",
+      "derived": true,
+      "edgeHints": [
+        "overview"
+      ],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "recentCommits": []
+    },
+    {
+      "id": "link-diff",
+      "title": "Link Diff Example",
+      "cluster": "reference",
+      "file": "link-diff.md",
+      "prompt": "Explain link drift.",
+      "derived": true,
+      "edgeHints": [
+        "overview",
+        "architecture",
+        "api-guide",
+        "faq"
+      ],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "recentCommits": []
+    }
+  ]
+}
