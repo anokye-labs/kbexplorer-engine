@@ -54,6 +54,10 @@ async function ghFetch<T>(
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
   };
+  const token = (env?.GITHUB_TOKEN ?? env?.GH_TOKEN) as string | undefined;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   if (etag) {
     headers['If-None-Match'] = etag;
   }
