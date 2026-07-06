@@ -1,0 +1,8 @@
+nodes:
+  - id: alpha
+    file: content/alpha.md
+  - id: content-files
+    glob: "content/*.md"
+    each: file
+  - id: content-model-dir
+    directory: content-model

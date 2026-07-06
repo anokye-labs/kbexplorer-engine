@@ -2,3 +2,5 @@ clusters:
   core:
     name: Core
     color: '#000000'
+theme:
+  themesFile: content/themes/extra.yaml

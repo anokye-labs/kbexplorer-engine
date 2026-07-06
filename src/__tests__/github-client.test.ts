@@ -216,7 +216,7 @@ describe('fetchFiles', () => {
 describe('endpoint patterns', () => {
   it('exports one canonical entry per ghFetch endpoint family', () => {
     expect(github.GITHUB_ENDPOINT_PATTERNS).toEqual([
-      'contents/', 'git/trees/', 'issues', 'pulls', 'commits', 'releases',
+      'contents/', 'git/trees/', 'issues', 'pulls', 'commits', 'releases', 'branches', 'languages',
     ]);
   });
 });

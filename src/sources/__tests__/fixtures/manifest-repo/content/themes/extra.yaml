@@ -1,0 +1,5 @@
+themes:
+  midnight:
+    displayName: Midnight
+    brand:
+      primary: '#101020'

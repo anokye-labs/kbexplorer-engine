@@ -38,14 +38,18 @@ import {
   fetchFiles,
   fetchCommits,
   fetchReleases,
+  fetchBranches,
+  fetchRepoMetadata,
   type CacheStore,
+  type GHBranchInfo,
 } from '../github-client';
 import type { GHIssue, GHTreeItem, GHCommit, GHRelease } from '../github-types';
 import { loadConfig } from '../parser';
 import type { ContentModelSource } from '../content-model';
 import { hasExplicitStructuredContentPath, resolveStructuredContentPath } from '../structured-content';
+import { collectNodemapData } from '../nodemap';
 import type { EngineEnv } from '../env';
-import type { RepoData, RepoSource, RepoPullRequest } from './repo-data';
+import type { RepoData, RepoSource, RepoPullRequest, RepoMetadata } from './repo-data';
 
 export type ResolutionPreset = 'summary' | 'standard' | 'full';
 
@@ -56,12 +60,17 @@ interface FetchedData {
   readme: string | null;
   commits: GHCommit[];
   releases: GHRelease[];
+  branches: GHBranchInfo[];
+  repoMetadata: RepoMetadata | null;
   authoredContent: Record<string, string>;
   structuralFiles: Record<string, string>;
   structuredNodeMapRaw: string | null;
   contentModel: ContentModelSource | null;
   config: KBConfig;
   themeFileRaw: string | null;
+  nodemapRaw: string | null;
+  nodemapFiles: Record<string, string>;
+  nodemapDirs: Record<string, GHTreeItem[]>;
 }
 
 /** Whether a repo path is a `.github` structural artifact or a CODEOWNERS file. */
@@ -80,6 +89,21 @@ const MAX_STRUCTURAL_FILE_SIZE = 256 * 1024;
  */
 async function fetchStructuredNodeMap(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<string | null> {
   for (const name of ['structured-node-map.yaml', 'structured-node-map.yml']) {
+    try {
+      return await fetchFile(source, name, env, cache);
+    } catch {
+      // Try the next extension.
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetch `nodemap.yaml`, falling back to `nodemap.yml`. Mirrors the old
+ * generator's `readNodemap` (anokye-labs/kbexplorer-engine#23).
+ */
+async function fetchNodemapRaw(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<string | null> {
+  for (const name of ['nodemap.yaml', 'nodemap.yml']) {
     try {
       return await fetchFile(source, name, env, cache);
     } catch {
@@ -135,11 +159,13 @@ export class GitHubApiSource implements RepoSource {
       repo: this.source.repo,
       tree: data.tree,
       authoredContent: data.authoredContent,
-      // No nodemap fetched at runtime yet — AuthoredProvider degrades to a
-      // safe no-op over authoredContent alone. (nodemapFiles/nodemapDirs are
-      // left unset rather than assigned undefined because this package enables
-      // exactOptionalPropertyTypes.)
-      nodemapRaw: null,
+      nodemapRaw: data.nodemapRaw,
+      // `nodemapFiles`/`nodemapDirs` are omitted (rather than assigned empty
+      // objects) when there's nothing to report — this package enables
+      // exactOptionalPropertyTypes, and the loader/manifest convention is to
+      // leave optional fields unset rather than emit noisy `{}`.
+      ...(Object.keys(data.nodemapFiles).length > 0 ? { nodemapFiles: data.nodemapFiles } : {}),
+      ...(Object.keys(data.nodemapDirs).length > 0 ? { nodemapDirs: data.nodemapDirs } : {}),
       listFiles: async () => [],
       issues: data.issues,
       // Reproduce the former remote shaping: no head_branch (so WorkProvider
@@ -163,8 +189,8 @@ export class GitHubApiSource implements RepoSource {
         return mapped;
       }),
       commits: data.commits,
-      branches: [],
-      repoMetadata: null,
+      branches: data.branches,
+      repoMetadata: data.repoMetadata,
       releases: data.releases,
       structuralFiles: data.structuralFiles,
       structuredNodeMapRaw: data.structuredNodeMapRaw,
@@ -306,11 +332,14 @@ export class GitHubApiSource implements RepoSource {
       ? fetchFile(source, config.theme.themesFile, env, cache).catch(() => null)
       : Promise.resolve<string | null>(null);
 
-    const [issues, readme, releases, themeFileRaw] = await Promise.all([
+    const [issues, readme, releases, themeFileRaw, branches, repoMetadata, nodemapRaw] = await Promise.all([
       fetchIssues(source, env, cache).catch(() => [] as GHIssue[]),
       fetchFile(source, 'README.md', env, cache).catch(() => null),
       fetchReleases(source, 30, env, cache).catch(() => [] as GHRelease[]),
       themeFilePromise,
+      fetchBranches(source, env, cache).catch(() => [] as GHBranchInfo[]),
+      fetchRepoMetadata(source, env, cache).catch(() => null),
+      fetchNodemapRaw(source, env, cache),
     ]);
 
     let tree: GHTreeItem[] = [];
@@ -320,6 +349,8 @@ export class GitHubApiSource implements RepoSource {
     const structuralFiles: Record<string, string> = {};
     let structuredNodeMapRaw: string | null = null;
     let contentModel: ContentModelSource | null = null;
+    let nodemapFiles: Record<string, string> = {};
+    let nodemapDirs: Record<string, GHTreeItem[]> = {};
 
     if (preset === 'standard' || preset === 'full') {
       const [treeResult, prResult] = await Promise.all([
@@ -365,13 +396,48 @@ export class GitHubApiSource implements RepoSource {
       } catch {
         // `.github` may not exist — safe no-op.
       }
+
+      if (nodemapRaw !== null) {
+        try {
+          const collected = await collectNodemapData(
+            nodemapRaw,
+            tree,
+            path => fetchFile(source, path, env, cache).catch(() => null),
+            dir => this.listNodemapDirFromTree(tree, dir),
+          );
+          nodemapFiles = collected.nodemapFiles;
+          nodemapDirs = collected.nodemapDirs;
+        } catch {
+          // Malformed nodemap.yaml — safe no-op.
+        }
+      }
     }
 
     if (preset === 'full') {
-      commits = await fetchCommits(source, 30, env, cache).catch(() => [] as GHCommit[]);
+      commits = await fetchCommits(source, 50, env, cache).catch(() => [] as GHCommit[]);
     }
 
-    return { issues, pullRequests, tree, readme, commits, releases, authoredContent, structuralFiles, structuredNodeMapRaw, contentModel, config, themeFileRaw: themeFileRaw ?? null };
+    return {
+      issues, pullRequests, tree, readme, commits, releases, branches, repoMetadata,
+      authoredContent, structuralFiles, structuredNodeMapRaw, contentModel, config,
+      themeFileRaw: themeFileRaw ?? null, nodemapRaw, nodemapFiles, nodemapDirs,
+    };
+  }
+
+  /**
+   * Direct children of `dir` in an already-fetched git tree — a nodemap
+   * `directory:` entry's listing derived with no extra API call. Skips
+   * dotfile-named children, mirroring the local source's `listNodemapDir`.
+   */
+  private listNodemapDirFromTree(tree: GHTreeItem[], dir: string): Promise<GHTreeItem[]> {
+    const prefix = `${dir}/`;
+    const out = tree.filter(item => {
+      if (!item.path.startsWith(prefix)) return false;
+      const rest = item.path.slice(prefix.length);
+      if (rest === '' || rest.includes('/')) return false;
+      return !rest.startsWith('.');
+    });
+    return Promise.resolve(out);
   }
 
   private async fetchContentModel(config: KBConfig): Promise<ContentModelSource | null> {

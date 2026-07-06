@@ -18,6 +18,7 @@
 import type { SourceConfig } from '@anokye-labs/kbexplorer-core';
 import type { EngineEnv } from './env';
 import type { GHIssue, GHTreeItem, GHCommit, GHRelease } from './github-types';
+import type { RepoMetadata } from './sources/repo-data';
 
 /**
  * The distinct GitHub REST endpoint path patterns this client's `ghFetch` call
@@ -34,6 +35,8 @@ export const GITHUB_ENDPOINT_PATTERNS = [
   'pulls',
   'commits',
   'releases',
+  'branches',
+  'languages',
 ] as const;
 
 const DEFAULT_GH_API_BASE = 'https://api.github.com';
@@ -269,4 +272,94 @@ export async function fetchFiles(
     }
   }
   return results;
+}
+
+/** A single branch as returned by the Branches API, shaped `{name, protected}`. */
+export interface GHBranchInfo {
+  name: string;
+  protected: boolean;
+}
+
+/** Minimal fields this client reads off the single-repo (`GET /repos/{owner}/{repo}`) response. */
+interface GHRepoResponse {
+  name: string;
+  description: string | null;
+  html_url: string;
+  homepage: string | null;
+  default_branch: string;
+  stargazers_count: number;
+  forks_count: number;
+  private: boolean;
+  topics?: string[];
+  language: string | null;
+  owner: { login: string; avatar_url: string };
+}
+
+/** Fetch all branches, shaped `{name, protected}` — mirrors the old generator's `fetchLocalBranches`. */
+export async function fetchBranches(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<GHBranchInfo[]> {
+  const key = `branches:${source.owner}/${source.repo}`;
+  const hit = cache?.get<GHBranchInfo[]>(key);
+  if (hit !== undefined) return hit;
+
+  const all: GHBranchInfo[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    const { data } = await ghFetch<Array<{ name: string; protected?: boolean }>>(
+      `/repos/${source.owner}/${source.repo}/branches?per_page=${perPage}&page=${page}`,
+      env,
+    );
+    all.push(...data.map(b => ({ name: b.name, protected: b.protected ?? false })));
+    if (data.length < perPage) break;
+    page++;
+  }
+
+  cache?.set(key, all);
+  return all;
+}
+
+/**
+ * Fetch repo metadata + language breakdown, shaped to the old generator's
+ * 12-key `fetchRepoMetadata` (`gh repo view --json ...`). REST equivalent:
+ * `GET /repos/{owner}/{repo}` for most fields, plus `GET .../languages` for
+ * the byte-size-per-language breakdown (sorted largest-first, matching the
+ * GraphQL `languages` connection's default `SIZE DESC` ordering).
+ */
+export async function fetchRepoMetadata(source: SourceConfig, env?: EngineEnv, cache?: CacheStore): Promise<RepoMetadata> {
+  const key = `repoMetadata:${source.owner}/${source.repo}`;
+  const hit = cache?.get<RepoMetadata>(key);
+  if (hit !== undefined) return hit;
+
+  const [{ data: repo }, languagesMap] = await Promise.all([
+    ghFetch<GHRepoResponse>(`/repos/${source.owner}/${source.repo}`, env),
+    ghFetch<Record<string, number>>(`/repos/${source.owner}/${source.repo}/languages`, env)
+      .then(r => r.data)
+      .catch(() => ({}) as Record<string, number>),
+  ]);
+
+  const languages = Object.entries(languagesMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, size]) => ({ name, size }));
+
+  const metadata: RepoMetadata = {
+    name: repo.name ?? '',
+    description: repo.description ?? '',
+    html_url: repo.html_url ?? '',
+    homepage: repo.homepage ?? '',
+    default_branch: repo.default_branch ?? 'main',
+    stargazers_count: repo.stargazers_count ?? 0,
+    forks_count: repo.forks_count ?? 0,
+    private: repo.private ?? false,
+    topics: repo.topics ?? [],
+    primary_language: repo.language ?? '',
+    languages,
+    owner: {
+      login: repo.owner?.login ?? '',
+      avatar_url: repo.owner?.avatar_url ?? '',
+    },
+  };
+
+  cache?.set(key, metadata);
+  return metadata;
 }

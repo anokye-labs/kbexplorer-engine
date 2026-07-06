@@ -1,18 +1,21 @@
 {
-  "_comment": "Golden source-derived fields captured by running kbexplorer-template's scripts/generate-manifest.js (generateManifest()) against ./manifest-repo, then keeping only the fields buildManifest() derives from a RepoSource's local (FileSystemSource) acquisition path. Volatile/live-GitHub fields (issues, pullRequests, commits, branches, repoMetadata, generatedAt) are intentionally excluded — they come from `gh`/`git` CLI calls the template script makes directly and are NOT part of the RepoSource/RepoData contract FileSystemSource implements (it leaves them as documented safe no-ops; see filesystem-source.test.ts). `tree` entries are compared ignoring `size`: FileSystemSource's walk() (existing, pre-#17 behavior) does not stat files, while the template's walkFileSystem() does — an existing, out-of-scope engine/template divergence, not something buildManifest introduces.",
+  "_comment": "Golden source-derived fields captured by running kbexplorer-template's scripts/generate-manifest.js (generateManifest()) against ./manifest-repo, then keeping only the fields buildManifest() derives from a RepoSource's local (FileSystemSource) acquisition path. Volatile/live-GitHub fields (issues, pullRequests, commits, branches, repoMetadata, generatedAt) are intentionally excluded — they come from `gh`/`git` CLI calls the template script makes directly and are NOT part of the RepoSource/RepoData contract FileSystemSource implements for local mode (see filesystem-source.test.ts). `tree` entries are compared ignoring `size`: FileSystemSource's walk() (existing, pre-#17 behavior) does not stat files, while the template's walkFileSystem() does — an existing, out-of-scope engine/template divergence, not something buildManifest introduces. Regenerated for anokye-labs/kbexplorer-engine#23 after adding nodemap.yaml and a theme.themesFile to the fixture so nodemapRaw/nodemapFiles/nodemapDirs/themeFileRaw are exercised with real (non-null) content, not just proven absent.",
   "tree": [
     { "path": ".github", "type": "tree" },
     { "path": ".github/CODEOWNERS", "type": "blob", "size": 11 },
     { "path": ".github/workflows", "type": "tree" },
     { "path": ".github/workflows/ci.yml", "type": "blob", "size": 116 },
-    { "path": "config.yaml", "type": "blob", "size": 54 },
+    { "path": "config.yaml", "type": "blob", "size": 101 },
     { "path": "content", "type": "tree" },
     { "path": "content/alpha.md", "type": "blob", "size": 66 },
     { "path": "content/beta.md", "type": "blob", "size": 62 },
+    { "path": "content/themes", "type": "tree" },
+    { "path": "content/themes/extra.yaml", "type": "blob", "size": 82 },
     { "path": "content-model", "type": "tree" },
     { "path": "content-model/entities", "type": "tree" },
     { "path": "content-model/entities/thing.yaml", "type": "blob", "size": 25 },
     { "path": "content-model/schema.yaml", "type": "blob", "size": 24 },
+    { "path": "nodemap.yaml", "type": "blob", "size": 165 },
     { "path": "README.md", "type": "blob", "size": 23 }
   ],
   "authoredContent": {
@@ -31,8 +34,18 @@
       "schema.yaml": "kind: schema\nname: demo\n"
     }
   },
-  "configRaw": "clusters:\n  core:\n    name: Core\n    color: '#000000'\n",
-  "nodemapRaw": null,
+  "configRaw": "clusters:\n  core:\n    name: Core\n    color: '#000000'\ntheme:\n  themesFile: content/themes/extra.yaml\n",
+  "nodemapRaw": "nodes:\n  - id: alpha\n    file: content/alpha.md\n  - id: content-files\n    glob: \"content/*.md\"\n    each: file\n  - id: content-model-dir\n    directory: content-model\n",
+  "nodemapFiles": {
+    "content/alpha.md": "---\nid: alpha\ntitle: Alpha\ncluster: core\n---\n# Alpha\n\nBody alpha.\n",
+    "content/beta.md": "---\nid: beta\ntitle: Beta\ncluster: core\n---\n# Beta\n\nBody beta.\n"
+  },
+  "nodemapDirs": {
+    "content-model": [
+      { "path": "content-model/entities", "type": "tree" },
+      { "path": "content-model/schema.yaml", "type": "blob", "size": 24 }
+    ]
+  },
   "structuredNodeMapRaw": null,
-  "themeFileRaw": null
+  "themeFileRaw": "themes:\n  midnight:\n    displayName: Midnight\n    brand:\n      primary: '#101020'\n"
 }
