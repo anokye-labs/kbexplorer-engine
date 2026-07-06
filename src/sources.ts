@@ -13,6 +13,9 @@ export { ManifestSource } from './sources/manifest-source';
 export { GitHubApiSource } from './sources/github-api-source';
 export type { ResolutionPreset } from './sources/github-api-source';
 
+export { buildManifest } from './sources/build-manifest';
+export type { BuildManifestOptions } from './sources/build-manifest';
+
 export { FileSystemSource } from './sources/filesystem-source';
 export type { FileSystemSourceOptions } from './sources/filesystem-source';
 
