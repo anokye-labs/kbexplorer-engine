@@ -60,6 +60,8 @@ export interface BuildManifestOptions {
    * comparisons, which must ignore this volatile field regardless.
    */
   generatedAt?: string;
+  /** When set, overlay the live-GitHub fields from this source onto the primary-source manifest (hybrid: local content + live augmentation). */
+  augmentFrom?: RepoSource;
 }
 
 /** Drop the `RepoPullRequest`-only `user`/`assignees` fields the `RepoManifest` shape doesn't carry. */
@@ -114,6 +116,16 @@ export async function buildManifest(
   if (Object.keys(data.structuralFiles).length > 0) manifest.structuralFiles = data.structuralFiles;
   if (data.contentModel) manifest.contentModel = data.contentModel;
   if (data.themeFileRaw) manifest.themeFileRaw = data.themeFileRaw;
+
+  if (options.augmentFrom) {
+    const live = await options.augmentFrom.getRepoData();
+    manifest.issues = live.issues;
+    manifest.pullRequests = live.pullRequests.map(toManifestPullRequest);
+    manifest.commits = live.commits;
+    if (live.repoMetadata !== null) manifest.repoMetadata = live.repoMetadata;
+    if (live.branches.length > 0) manifest.branches = live.branches;
+    if (live.releases.length > 0) manifest.releases = live.releases;
+  }
 
   return manifest;
 }
