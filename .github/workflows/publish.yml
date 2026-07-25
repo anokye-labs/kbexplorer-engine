@@ -12,8 +12,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: npm ci
@@ -23,12 +23,32 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
       - run: npm ci
+
+      # Node 22's bundled npm (10.x) is below the 11.5.1 minimum required for
+      # OIDC trusted publishing (npmjs.com). Upgrade npm here (publish job
+      # only — test doesn't need it) so OIDC auth can work at all.
+      - run: npm install -g npm@latest
+
+      # OIDC trusted publishing (npmjs.com) is the auth path for this workflow;
+      # npm tries OIDC first and only falls back to _authToken if that fails,
+      # so this doesn't affect the OIDC path either way. NODE_AUTH_TOKEN is set
+      # to an EXPLICIT empty string (not omitted): actions/setup-node always
+      # writes `_authToken=${NODE_AUTH_TOKEN}` into .npmrc, and per npm's own
+      # docs an env var that is truly undefined is left as the literal
+      # unresolved "${NODE_AUTH_TOKEN}" string (a bogus non-empty token),
+      # whereas a defined-but-empty var substitutes cleanly to "". A clean ""
+      # resolves to no classic token (clean ENEEDAUTH if OIDC isn't configured
+      # yet); an unresolved placeholder would be sent as a literal invalid
+      # token instead, which registries reject with a more confusing error.
+      # `prepare` builds dist/ automatically before publish.
       - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ''
