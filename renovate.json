@@ -11,8 +11,8 @@
       "matchManagers": [
         "npm"
       ],
-      "matchPackagePatterns": [
-        "^@anokye-labs/"
+      "matchPackageNames": [
+        "@anokye-labs/**"
       ],
       "groupName": "anokye-labs",
       "groupSlug": "anokye-labs"
