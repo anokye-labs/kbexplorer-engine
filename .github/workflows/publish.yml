@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
       - run: npm test
 
   publish:
@@ -37,6 +39,8 @@ jobs:
       # only — test doesn't need it) so OIDC auth can work at all.
       - run: npm install -g npm@latest
 
+      - run: npm pack --dry-run
+
       # OIDC trusted publishing (npmjs.com) is the auth path for this workflow;
       # npm tries OIDC first and only falls back to _authToken if that fails,
       # so this doesn't affect the OIDC path either way. NODE_AUTH_TOKEN is set
@@ -49,6 +53,6 @@ jobs:
       # yet); an unresolved placeholder would be sent as a literal invalid
       # token instead, which registries reject with a more confusing error.
       # `prepare` builds dist/ automatically before publish.
-      - run: npm publish --access public
+      - run: npm stage publish --access public
         env:
           NODE_AUTH_TOKEN: ''
