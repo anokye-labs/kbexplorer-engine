@@ -3,6 +3,12 @@ name: Publish to npm
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: Existing release tag/ref to check out for manual dispatch (for example v0.1.1)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +19,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_ref || github.ref }}
+
+      - name: Verify release ref matches package version
+        shell: bash
+        env:
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.release_ref || github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_REF" == refs/tags/* ]]; then
+            release_tag="${RELEASE_REF#refs/tags/}"
+          elif [[ "$RELEASE_REF" == v* ]]; then
+            release_tag="$RELEASE_REF"
+          else
+            echo "Expected a release tag or tag ref, got '$RELEASE_REF'." >&2
+            exit 1
+          fi
+
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$release_tag" != "v$package_version" ]]; then
+            echo "Selected release tag '$release_tag' does not match package.json version 'v$package_version'." >&2
+            exit 1
+          fi
+
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -26,6 +56,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_ref || github.ref }}
+
+      - name: Verify release ref matches package version
+        shell: bash
+        env:
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.release_ref || github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_REF" == refs/tags/* ]]; then
+            release_tag="${RELEASE_REF#refs/tags/}"
+          elif [[ "$RELEASE_REF" == v* ]]; then
+            release_tag="$RELEASE_REF"
+          else
+            echo "Expected a release tag or tag ref, got '$RELEASE_REF'." >&2
+            exit 1
+          fi
+
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$release_tag" != "v$package_version" ]]; then
+            echo "Selected release tag '$release_tag' does not match package.json version 'v$package_version'." >&2
+            exit 1
+          fi
 
       - uses: actions/setup-node@v6
         with:
